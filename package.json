@@ -1,0 +1,23 @@
+{
+  "name": "antigravity-pool-manager",
+  "version": "1.0.0",
+  "description": "Enterprise-grade Multi-Account Quota Pool & Automatic Switcher for Google Antigravity (Supports macOS & Windows WebUI / Desktop)",
+  "main": "server.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "web": "node server.mjs",
+    "build:mac": "bash scripts/build_app.sh"
+  },
+  "keywords": [
+    "antigravity",
+    "google-cloud",
+    "quota-manager",
+    "account-switcher",
+    "fluent-design",
+    "macos",
+    "windows"
+  ],
+  "author": "CryoThrust",
+  "license": "MIT"
+}

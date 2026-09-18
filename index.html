@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Antigravity 账号池与配额控制台</title>
+  <style>
+    :root {
+      /* Microsoft Fluent 2 Dark Theme Palette (Windows 11 / Azure Pro standard) */
+      --ms-bg-canvas: #202024;
+      --ms-bg-header: #26272b;
+      --ms-surface-card: #2b2c31;
+      --ms-surface-card-hover: #323339;
+      --ms-surface-subtle: #242529;
+      --ms-surface-elevated: #36373e;
+
+      --ms-border-subtle: rgba(255, 255, 255, 0.08);
+      --ms-border-card: rgba(255, 255, 255, 0.10);
+      --ms-border-strong: rgba(255, 255, 255, 0.18);
+
+      --ms-text-high: #ffffff;
+      --ms-text-mid: #d1d1d6;
+      --ms-text-muted: #8e8e93;
+      --ms-text-disabled: #5a5a60;
+
+      /* Microsoft Fluent Accents */
+      --ms-blue: #0078d4;
+      --ms-blue-hover: #106ebe;
+      --ms-blue-luminous: #479ef5;
+      --ms-green: #23a55a;
+      --ms-green-bg: rgba(35, 165, 90, 0.12);
+      --ms-amber: #f59e0b;
+      --ms-amber-bg: rgba(245, 158, 11, 0.12);
+      --ms-red: #f1707b;
+      --ms-red-bg: rgba(241, 112, 123, 0.12);
+
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+
+      --font-fluent: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+      --font-mono: "Segoe UI Variable Text", "Cascadia Code", "SF Mono", Menlo, Consolas, ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--ms-bg-canvas);
+      color: var(--ms-text-high);
+      font-family: var(--font-fluent);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      user-select: none;
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      background: var(--ms-bg-canvas);
+    }
+
+    :root {
+      --header-pad-left: 80px;
+    }
+    body.in-browser {
+      --header-pad-left: 20px;
+    }
+
+    /* Microsoft Fluent Command Bar / Window Header */
+    .fluent-header {
+      height: 52px;
+      padding-left: var(--header-pad-left);
+      padding-right: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--ms-border-subtle);
+      background: var(--ms-bg-header);
+      flex-shrink: 0;
+      cursor: default;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+
+    .fluent-header-actions,
+    .fluent-header button,
+    .fluent-badge {
+      -webkit-app-region: no-drag;
+    }
+
+    .fluent-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ms-text-high);
+      letter-spacing: -0.01em;
+    }
+    .fluent-breadcrumb .sep {
+      color: var(--ms-text-muted);
+      font-weight: 400;
+    }
+    .fluent-badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 1px 7px;
+      border-radius: var(--radius-sm);
+      background: var(--ms-green-bg);
+      color: var(--ms-green);
+      border: 1px solid rgba(35, 165, 90, 0.25);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .fluent-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ms-green);
+    }
+
+    .fluent-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Microsoft Fluent Buttons */
+    .fluent-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 30px;
+      padding: 0 14px;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: var(--font-fluent);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: 1px solid var(--ms-border-card);
+      background: var(--ms-surface-card);
+      color: var(--ms-text-high);
+      outline: none;
+      transition: all 120ms ease;
+    }
+    .fluent-btn:hover {
+      background: var(--ms-surface-card-hover);
+      border-color: var(--ms-border-strong);
+    }
+    .fluent-btn:active {
+      transform: scale(0.98);
+    }
+    .fluent-btn.primary {
+      background: var(--ms-blue);
+      border-color: var(--ms-blue);
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 120, 212, 0.35);
+    }
+    .fluent-btn.primary:hover {
+      background: var(--ms-blue-hover);
+      border-color: var(--ms-blue-hover);
+    }
+    .fluent-btn.subtle-danger {
+      background: transparent;
+      border-color: transparent;
+      color: var(--ms-red);
+    }
+    .fluent-btn.subtle-danger:hover {
+      background: var(--ms-red-bg);
+    }
+
+    /* Scrollable Workspace */
+    .fluent-content {
+      flex: 1;
+      padding: 20px 24px 36px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: overlay;
+      overflow-x: hidden;
+    }
+
+    .fluent-content::-webkit-scrollbar { width: 6px; }
+    .fluent-content::-webkit-scrollbar-track { background: transparent; }
+    .fluent-content::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+    }
+    .fluent-content::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.22); }
+
+    /* Microsoft InfoBar (Notice) */
+    .fluent-infobar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      background: var(--ms-surface-card);
+      border-left: 3px solid var(--ms-blue);
+      border-top: 1px solid var(--ms-border-subtle);
+      border-right: 1px solid var(--ms-border-subtle);
+      border-bottom: 1px solid var(--ms-border-subtle);
+      animation: fadeIn 120ms ease;
+    }
+    .fluent-infobar.success {
+      border-left-color: var(--ms-green);
+    }
+
+    /* ======================================================== */
+    /* MICROSOFT AZURE / POWER BI STYLE KPI TILES (仪表盘) */
+    /* ======================================================== */
+    .fluent-card {
+      background: var(--ms-surface-card);
+      border: 1px solid var(--ms-border-card);
+      border-radius: var(--radius-md);
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-title-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-title-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ms-text-high);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-caption {
+      font-size: 11px;
+      color: var(--ms-text-muted);
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    /* Microsoft Minimalist KPI Tile */
+    .kpi-tile {
+      background: var(--ms-surface-subtle);
+      border: 1px solid var(--ms-border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      position: relative;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .kpi-tile:hover {
+      background: var(--ms-surface-card-hover);
+      border-color: var(--ms-border-card);
+    }
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--ms-text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .kpi-value {
+      font-size: 24px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum";
+      letter-spacing: -0.02em;
+      color: var(--ms-text-high);
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin: 2px 0;
+    }
+    .kpi-unit {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--ms-text-muted);
+    }
+    .kpi-track {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .kpi-fill {
+      height: 100%;
+      background: var(--ms-green);
+      border-radius: 2px;
+      transition: width 240ms ease;
+    }
+    .kpi-desc {
+      font-size: 11px;
+      color: var(--ms-text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Microsoft Fluent Status Strip */
+    .fluent-strip {
+      display: grid;
+      grid-template-columns: 1.4fr 1.1fr 1.2fr;
+      gap: 12px;
+      background: var(--ms-surface-card);
+      border: 1px solid var(--ms-border-card);
+      border-radius: var(--radius-md);
+      padding: 12px 18px;
+    }
+
+    .strip-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .strip-avatar-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: var(--ms-surface-subtle);
+      border: 1px solid var(--ms-border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ms-text-mid);
+      flex-shrink: 0;
+    }
+    .strip-body {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+    }
+    .strip-heading {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ms-text-high);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .strip-subtext {
+      font-size: 11px;
+      color: var(--ms-text-muted);
+    }
+
+    /* Windows 11 Fluent Toggle Switch */
+    .fluent-switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .fluent-switch input { opacity: 0; width: 0; height: 0; }
+    .fluent-switch-track {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--ms-surface-subtle);
+      transition: .15s ease-in-out;
+      border-radius: 20px;
+      border: 1px solid var(--ms-border-strong);
+    }
+    .fluent-switch-track:before {
+      position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px;
+      background-color: #ffffff;
+      transition: .15s ease-in-out;
+      border-radius: 50%;
+    }
+    input:checked + .fluent-switch-track {
+      background-color: var(--ms-blue);
+      border-color: var(--ms-blue);
+    }
+    input:checked + .fluent-switch-track:before {
+      transform: translateX(20px);
+    }
+
+    /* Microsoft Data Grid (Azure Table style) */
+    .fluent-table-box {
+      border: 1px solid var(--ms-border-subtle);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--ms-surface-subtle);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    th {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ms-text-muted);
+      background: rgba(0, 0, 0, 0.2);
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--ms-border-subtle);
+    }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--ms-border-subtle);
+      font-size: 12px;
+      vertical-align: middle;
+      color: var(--ms-text-high);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+    }
+    .status-active {
+      background: rgba(0, 120, 212, 0.15);
+      color: var(--ms-blue-luminous);
+      border: 1px solid rgba(0, 120, 212, 0.3);
+    }
+    .status-standby {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--ms-text-muted);
+      border: 1px solid var(--ms-border-subtle);
+    }
+
+    .quota-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      width: 130px;
+    }
+    .quota-cell-head {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum";
+      font-size: 11px;
+    }
+    .quota-cell-track {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .quota-cell-fill {
+      height: 100%;
+      background: var(--ms-green);
+      border-radius: 2px;
+    }
+    .quota-cell-fill.warn { background: var(--ms-amber); }
+    .quota-cell-fill.danger { background: var(--ms-red); }
+    .quota-cell-reset {
+      font-size: 10px;
+      color: var(--ms-text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* Microsoft Fluent Pivot Filter Tabs (经典下划线选项卡) */
+    .fluent-pivot-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .fluent-pivot-tabs {
+      display: inline-flex;
+      border-bottom: 2px solid transparent;
+      gap: 8px;
+    }
+    .pivot-tab {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ms-text-muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      transition: color 120ms ease;
+    }
+    .pivot-tab:hover { color: var(--ms-text-high); }
+    .pivot-tab.active {
+      color: var(--ms-text-high);
+      font-weight: 600;
+    }
+    .pivot-tab.active:after {
+      content: "";
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--ms-blue);
+      border-radius: 2px;
+    }
+
+    .fluent-search {
+      height: 28px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-family: var(--font-fluent);
+      background: var(--ms-surface-subtle);
+      border: 1px solid var(--ms-border-card);
+      border-radius: var(--radius-sm);
+      color: var(--ms-text-high);
+      outline: none;
+      width: 190px;
+      transition: border-color 120ms ease;
+    }
+    .fluent-search:focus {
+      border-color: var(--ms-blue);
+    }
+
+    .tabular {
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum";
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-shell">
+    <!-- Microsoft Fluent Command Bar (原生拖拽区域) -->
+    <header class="fluent-header" onmousedown="handleHeaderMouseDown(event)">
+      <div class="fluent-breadcrumb">
+        <span>ANTIGRAVITY POOL MANAGER</span>
+        <span class="sep">/</span>
+        <span>账号调度中心</span>
+        <span class="fluent-badge">
+          <span class="dot"></span> 正常运行
+        </span>
+      </div>
+
+      <div class="fluent-header-actions">
+        <button class="fluent-btn" onclick="refreshAllQuotas()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
+          同步配额
+        </button>
+        <button class="fluent-btn primary" id="btnAddAccount" onclick="addNewAccount()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          添加小号 (OAuth)
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="fluent-content">
+      
+      <!-- InfoBar -->
+      <div id="noticeBox" style="display: none;" class="fluent-infobar">
+        <span id="noticeText"></span>
+        <div style="display: flex; gap: 8px;" id="noticeActions"></div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TOP DEDICATED AGGREGATE QUOTA DASHBOARD (微软简约风仪表盘) -->
+      <!-- ======================================================== -->
+      <section class="fluent-card">
+        <div class="card-title-bar">
+          <div class="card-title-text">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+            号池算力汇总仪表盘
+          </div>
+          <div class="card-caption" id="dashSyncTime">最新探测: 刚刚</div>
+        </div>
+
+        <div class="kpi-grid">
+          <!-- 5h 总额度 -->
+          <div class="kpi-tile">
+            <div class="kpi-label">
+              <span>5H 可用额度均值</span>
+              <span class="status-badge status-active" id="dash5hTag">充足</span>
+            </div>
+            <div class="kpi-value">
+              <span id="dash5hVal">--</span>
+              <span class="kpi-unit">/ 100%</span>
+            </div>
+            <div class="kpi-track">
+              <div class="kpi-fill" id="dash5hBar" style="width: 0%;"></div>
+            </div>
+            <div class="kpi-desc" id="dash5hSub">载入中...</div>
+          </div>
+
+          <!-- 周度总额度 -->
+          <div class="kpi-tile">
+            <div class="kpi-label">
+              <span>周度可用总容量</span>
+              <span class="status-badge" style="background: var(--ms-green-bg); color: var(--ms-green);" id="dashWeeklyTag">健康</span>
+            </div>
+            <div class="kpi-value">
+              <span id="dashWeeklyVal">--</span>
+              <span class="kpi-unit" id="dashWeeklyMax">/ --%</span>
+            </div>
+            <div class="kpi-track">
+              <div class="kpi-fill" id="dashWeeklyBar" style="width: 0%;"></div>
+            </div>
+            <div class="kpi-desc" id="dashWeeklySub">载入中...</div>
+          </div>
+
+          <!-- 账号就绪度 -->
+          <div class="kpi-tile">
+            <div class="kpi-label">
+              <span>号池可用账号数</span>
+              <span class="status-badge status-active" id="dashAccountTag">就绪</span>
+            </div>
+            <div class="kpi-value">
+              <span id="dashAccountVal">-- / --</span>
+              <span class="kpi-unit">个正常</span>
+            </div>
+            <div class="kpi-track">
+              <div class="kpi-fill" id="dashAccountBar" style="width: 100%;"></div>
+            </div>
+            <div class="kpi-desc" id="dashAccountSub">载入中...</div>
+          </div>
+
+          <!-- 对话累计 Tokens -->
+          <div class="kpi-tile">
+            <div class="kpi-label">
+              <span>全局累计对话消耗</span>
+              <span class="status-badge" style="background: rgba(255,255,255,0.06); color: var(--ms-text-muted);">实时</span>
+            </div>
+            <div class="kpi-value">
+              <span id="dashTotalTokens" style="color: var(--ms-blue-luminous);">--</span>
+              <span class="kpi-unit">Tokens</span>
+            </div>
+            <div class="kpi-track">
+              <div class="kpi-fill" style="width: 100%; background: var(--ms-blue);"></div>
+            </div>
+            <div class="kpi-desc" id="dashTokenSub">载入中...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 状态与自动化条 -->
+      <section class="fluent-strip">
+        <div class="strip-cell">
+          <div class="strip-avatar-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          </div>
+          <div class="strip-body">
+            <div class="strip-heading">
+              <span id="activeEmailText">读取钥匙串凭据...</span>
+              <span class="status-badge status-active">当前挂载</span>
+            </div>
+            <div class="strip-subtext" id="activeNameText">macOS Keychain · gemini:antigravity</div>
+          </div>
+        </div>
+
+        <div class="strip-cell">
+          <div class="strip-avatar-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <div class="strip-body">
+            <div class="strip-heading">
+              <span>无感自动续期守护</span>
+              <span class="status-badge status-active">已保护</span>
+            </div>
+            <div class="strip-subtext">到期前 15 分钟自动换发，关机重启自动换新</div>
+          </div>
+        </div>
+
+        <div class="strip-cell" style="justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="strip-avatar-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.1l4 4-4 4"></path><path d="M3 12.2v-2a4 4 0 0 1 4-4h14"></path><path d="M7 21.9l-4-4 4-4"></path><path d="M21 11.8v2a4 4 0 0 1-4 4H3"></path></svg>
+            </div>
+            <div class="strip-body">
+              <div class="strip-heading">额度见底自动切号</div>
+              <div class="strip-subtext">5h 额度 ≤2% 自动轮转最高小号</div>
+            </div>
+          </div>
+          <label class="fluent-switch">
+            <input type="checkbox" id="autoSwitchToggle" onchange="toggleAutoSwitch(this)" checked>
+            <span class="fluent-switch-track"></span>
+          </label>
+        </div>
+      </section>
+
+      <!-- 小号集群管理列表 -->
+      <section class="fluent-card">
+        <div class="card-title-bar">
+          <div class="card-title-text">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            纳管小号集群与实时配额
+          </div>
+          <div class="card-caption">直连 Google Cloud 专有接口获取各账号实时配额</div>
+        </div>
+
+        <div class="fluent-table-box">
+          <table>
+            <thead>
+              <tr>
+                <th>账号信息</th>
+                <th style="width: 100px;">状态</th>
+                <th style="width: 150px;">Gemini 5h 剩余额度</th>
+                <th style="width: 150px;">Gemini 周度剩余额度</th>
+                <th style="width: 140px;">Claude / GPT 额度</th>
+                <th style="text-align: right; width: 140px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="poolTableBody">
+              <tr><td colspan="6" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 单次对话消耗明细 -->
+      <section class="fluent-card">
+        <div class="fluent-pivot-bar">
+          <div class="card-title-text">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            交互消耗审计日志
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <input type="text" id="searchInput" class="fluent-search" placeholder="搜索提问关键词..." oninput="renderTurnLog()">
+            <!-- Microsoft Fluent Pivot Tabs -->
+            <div class="fluent-pivot-tabs" id="filterBtnGroup">
+              <button class="pivot-tab active" onclick="setTimelineFilter('all', this)">全部</button>
+              <button class="pivot-tab" onclick="setTimelineFilter('today', this)">今天</button>
+              <button class="pivot-tab" onclick="setTimelineFilter('yesterday', this)">昨天</button>
+              <button class="pivot-tab" onclick="setTimelineFilter('7days', this)">最近 7 天</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+          <div class="kpi-tile" style="padding: 10px 14px;">
+            <span class="kpi-label">区间总消耗</span>
+            <div class="kpi-value" style="font-size: 18px; color: var(--ms-blue-luminous);" id="filterTotalTokens">--</div>
+            <span class="kpi-desc">Total Tokens</span>
+          </div>
+          <div class="kpi-tile" style="padding: 10px 14px;">
+            <span class="kpi-label">交互总轮次</span>
+            <div class="kpi-value" style="font-size: 18px;" id="filterTotalTurns">--</div>
+            <span class="kpi-desc">User Inputs</span>
+          </div>
+          <div class="kpi-tile" style="padding: 10px 14px;">
+            <span class="kpi-label">单次平均消耗</span>
+            <div class="kpi-value" style="font-size: 18px;" id="filterAvgTokens">--</div>
+            <span class="kpi-desc">Avg Tokens / Turn</span>
+          </div>
+        </div>
+
+        <div class="fluent-table-box">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 140px;">时间戳</th>
+                <th>用户发送内容 (Prompt)</th>
+                <th style="width: 80px;">步骤</th>
+                <th style="text-align: right; width: 140px;">单次消耗</th>
+              </tr>
+            </thead>
+            <tbody id="turnTableBody">
+              <tr><td colspan="4" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    function handleHeaderMouseDown(e) {
+      // 如果点击的是按钮或按钮内部的元素，不触发拖拽
+      if (e.target.closest('button') || e.target.closest('.fluent-badge')) {
+        return;
+      }
+      try {
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dragWindow) {
+          window.webkit.messageHandlers.dragWindow.postMessage('drag');
+        }
+      } catch (err) {
+        console.warn('dragWindow message handler error:', err);
+      }
+    }
+
+    // 检测当前环境（浏览器 vs 独立应用），微调布局
+    if (!window.webkit || !window.webkit.messageHandlers || !window.webkit.messageHandlers.dragWindow) {
+      document.body.classList.add('in-browser');
+    }
+
+    function showNotice(text, isSuccess = false, authUrl = null) {
+      const box = document.getElementById('noticeBox');
+      const txt = document.getElementById('noticeText');
+      const actions = document.getElementById('noticeActions');
+      box.className = 'fluent-infobar ' + (isSuccess ? 'success' : '');
+      txt.textContent = text;
+      actions.innerHTML = '';
+
+      if (authUrl) {
+        const a = document.createElement('a');
+        a.href = authUrl;
+        a.target = '_blank';
+        a.className = 'fluent-btn primary';
+        a.textContent = '点此前往 Google 授权页面 →';
+        actions.appendChild(a);
+      }
+
+      box.style.display = 'flex';
+    }
+
+    async function toggleAutoSwitch(checkbox) {
+      try {
+        const res = await fetch('/api/toggle-auto-switch', { method: 'POST' });
+        const data = await res.json();
+        checkbox.checked = data.autoSwitch;
+        showNotice(data.autoSwitch ? '已启用「额度见底自动切号」' : '已停用「额度见底自动切号」', true);
+      } catch (e) {
+        showNotice('设置更新失败: ' + e.message);
+      }
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        renderActiveBar(data.currentSystemUser);
+        renderTopDashboard(data);
+        renderPool(data.pool);
+        if (typeof data.autoSwitch !== 'undefined') {
+          const t = document.getElementById('autoSwitchToggle');
+          if (t) t.checked = data.autoSwitch;
+        }
+        rawTurnsList = data.dialogTurns || [];
+        renderTurnLog();
+      } catch (e) {
+        console.error('加载状态异常:', e);
+      }
+    }
+
+    function renderActiveBar(user) {
+      if (!user) {
+        document.getElementById('activeEmailText').textContent = '未挂载有效凭据';
+        document.getElementById('activeNameText').textContent = '系统钥匙串中暂无有效 Antigravity 登录';
+        return;
+      }
+      document.getElementById('activeEmailText').textContent = user.email;
+      document.getElementById('activeNameText').textContent = (user.name || '已授权用户') + ' · macOS Keychain gemini:antigravity';
+    }
+
+    function renderTopDashboard(data) {
+      const accounts = Array.isArray(data.pool?.accounts) ? data.pool.accounts : Object.values(data.pool?.accounts || {});
+      const count = accounts.length;
+
+      document.getElementById('dashSyncTime').textContent = '最新探测: ' + new Date().toLocaleTimeString();
+
+      let sum5h = 0;
+      let sumWeekly = 0;
+      let valid5hCount = 0;
+      let validWeeklyCount = 0;
+      let readyAccounts = 0;
+
+      accounts.forEach(acc => {
+        const q = acc.quota;
+        if (q?.gemini_5h && typeof q.gemini_5h.remainingFraction === 'number') {
+          sum5h += q.gemini_5h.remainingFraction;
+          valid5hCount++;
+          if (q.gemini_5h.remainingFraction > 0.05) readyAccounts++;
+        }
+        if (q?.gemini_weekly && typeof q.gemini_weekly.remainingFraction === 'number') {
+          sumWeekly += q.gemini_weekly.remainingFraction;
+          validWeeklyCount++;
+        }
+      });
+
+      // 1. 5H 额度聚合
+      const avg5h = valid5hCount > 0 ? (sum5h / valid5hCount) * 100 : 0;
+      const avg5hFixed = avg5h.toFixed(1);
+      document.getElementById('dash5hVal').textContent = avg5hFixed + '%';
+      document.getElementById('dash5hBar').style.width = Math.min(100, Math.max(0, avg5h)) + '%';
+      if (avg5h < 20) {
+        document.getElementById('dash5hBar').style.background = 'var(--ms-red)';
+        document.getElementById('dash5hTag').textContent = '偏低';
+        document.getElementById('dash5hTag').style.background = 'var(--ms-red-bg)';
+        document.getElementById('dash5hTag').style.color = 'var(--ms-red)';
+      } else {
+        document.getElementById('dash5hBar').style.background = 'var(--ms-green)';
+        document.getElementById('dash5hTag').textContent = '充足';
+        document.getElementById('dash5hTag').style.background = 'var(--ms-green-bg)';
+        document.getElementById('dash5hTag').style.color = 'var(--ms-green)';
+      }
+      document.getElementById('dash5hSub').textContent = count + ' 个纳管小号 · ' + readyAccounts + ' 个额度可用';
+
+      // 2. 周度额度聚合
+      const totalCapacityPct = (sumWeekly * 100).toFixed(1);
+      const maxWeeklyCapacity = count * 100;
+      const avgWeekly = validWeeklyCount > 0 ? (sumWeekly / validWeeklyCount) * 100 : 0;
+      document.getElementById('dashWeeklyVal').textContent = avgWeekly.toFixed(1) + '%';
+      document.getElementById('dashWeeklyMax').textContent = `(总容量 ${totalCapacityPct}% / ${maxWeeklyCapacity}%)`;
+      document.getElementById('dashWeeklyBar').style.width = Math.min(100, Math.max(0, avgWeekly)) + '%';
+      document.getElementById('dashWeeklySub').textContent = '周配额充足，支持长时间任务自动轮转接力';
+
+      // 3. 账号集群
+      document.getElementById('dashAccountVal').textContent = count + ' / ' + count;
+      document.getElementById('dashAccountSub').textContent = '当前激活: ' + (data.pool?.active || '未指定');
+
+      // 4. 对话消耗 Tokens
+      let totalTokens = 0;
+      (data.dialogTurns || []).forEach(t => { totalTokens += t.estTokens; });
+      document.getElementById('dashTotalTokens').textContent = totalTokens.toLocaleString();
+      const turnsCount = (data.dialogTurns || []).length;
+      const avg = turnsCount > 0 ? Math.round(totalTokens / turnsCount) : 0;
+      document.getElementById('dashTokenSub').textContent = `${turnsCount} 轮对话交互 · 均次 ~${avg.toLocaleString()}`;
+    }
+
+    function buildQuotaCell(bucket) {
+      if (!bucket || typeof bucket.remainingFraction !== 'number') {
+        return '<span class="tabular" style="color: var(--ms-text-muted); font-size: 11px;">未获取</span>';
+      }
+      const pct = Math.round(bucket.remainingFraction * 1000) / 10;
+      let fillClass = '';
+      if (pct < 20) fillClass = 'danger';
+      else if (pct < 50) fillClass = 'warn';
+
+      let resetStr = '';
+      if (bucket.resetTime) {
+        const d = new Date(bucket.resetTime);
+        resetStr = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0') + ' 重置';
+      }
+
+      return `
+        <div class="quota-cell">
+          <div class="quota-cell-head">
+            <span style="font-weight: 600; color: ${pct < 20 ? 'var(--ms-red)' : 'var(--ms-text-high)'};">${pct}%</span>
+            <span class="quota-cell-reset">${resetStr}</span>
+          </div>
+          <div class="quota-cell-track">
+            <div class="quota-cell-fill ${fillClass}" style="width: ${pct}%;"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPool(pool) {
+      const tbody = document.getElementById('poolTableBody');
+      const accounts = Array.isArray(pool?.accounts) ? pool.accounts : Object.values(pool?.accounts || {});
+      const activeEmail = pool?.active;
+
+      if (accounts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color: var(--ms-text-muted); text-align: center; padding: 28px;">小号池暂无账号。请点击右上角【+ 添加小号】。</td></tr>';
+        return;
+      }
+
+      let html = '';
+      accounts.forEach(acc => {
+        const isActive = acc.email === activeEmail;
+        const q = acc.quota;
+
+        html += '<tr>';
+        html += '  <td>';
+        html += '    <div style="display: flex; align-items: center; gap: 10px;">';
+        if (acc.picture) {
+          html += '      <img src="' + acc.picture + '" style="width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--ms-border-card);">';
+        } else {
+          html += '      <div style="width: 26px; height: 26px; border-radius: 50%; background: var(--ms-surface-subtle); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight: 600;">' + acc.email[0].toUpperCase() + '</div>';
+        }
+        html += '      <div>';
+        html += '        <div style="font-weight: 500; font-size: 13px;">' + (acc.name || acc.email) + '</div>';
+        html += '        <div class="tabular" style="color: var(--ms-text-muted); font-size: 11px;">' + acc.email + '</div>';
+        html += '      </div>';
+        html += '    </div>';
+        html += '  </td>';
+        html += '  <td>';
+        if (isActive) {
+          html += '<span class="status-badge status-active">挂载中</span>';
+        } else {
+          html += '<span class="status-badge status-standby">待命中</span>';
+        }
+        html += '  </td>';
+        
+        html += '  <td>' + buildQuotaCell(q?.gemini_5h) + '</td>';
+        html += '  <td>' + buildQuotaCell(q?.gemini_weekly) + '</td>';
+        html += '  <td>' + buildQuotaCell(q?.claude_5h) + '</td>';
+
+        html += '  <td style="text-align: right;">';
+        if (!isActive) {
+          html += '    <button class="fluent-btn" onclick="switchAccount(\'' + acc.email + '\')" style="margin-right: 4px;">切换为主凭据</button>';
+        }
+        html += '    <button class="fluent-btn subtle-danger" onclick="deleteAccount(\'' + acc.email + '\')">移除</button>';
+        html += '  </td>';
+        html += '</tr>';
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    let rawTurnsList = [];
+    let currentFilter = 'all';
+
+    function setTimelineFilter(filter, btn) {
+      currentFilter = filter;
+      const btns = document.querySelectorAll('#filterBtnGroup .pivot-tab');
+      btns.forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderTurnLog();
+    }
+
+    function renderTurnLog() {
+      const tbody = document.getElementById('turnTableBody');
+      const searchKeyword = (document.getElementById('searchInput')?.value || '').toLowerCase();
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const yesterdayStart = todayStart - 86400000;
+      const sevenDaysAgo = todayStart - 7 * 86400000;
+
+      const filtered = rawTurnsList.filter(t => {
+        const time = new Date(t.time).getTime();
+        let passTime = true;
+        if (currentFilter === 'today') passTime = time >= todayStart;
+        if (currentFilter === 'yesterday') passTime = time >= yesterdayStart && time < todayStart;
+        if (currentFilter === '7days') passTime = time >= sevenDaysAgo;
+        if (!passTime) return false;
+
+        if (searchKeyword) {
+          return (t.prompt || '').toLowerCase().includes(searchKeyword);
+        }
+        return true;
+      });
+
+      let totalTokens = 0;
+      filtered.forEach(t => { totalTokens += t.estTokens; });
+      const count = filtered.length;
+      const avg = count > 0 ? Math.round(totalTokens / count) : 0;
+
+      document.getElementById('filterTotalTokens').textContent = totalTokens.toLocaleString();
+      document.getElementById('filterTotalTurns').textContent = count;
+      document.getElementById('filterAvgTokens').textContent = '~' + avg.toLocaleString();
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color: var(--ms-text-muted); text-align: center; padding: 24px;">暂无匹配的对话记录</td></tr>';
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(t => {
+        const d = new Date(t.time);
+        html += '<tr>';
+        html += '  <td class="tabular" style="color: var(--ms-text-mid); font-size: 11px;">' + d.toLocaleTimeString() + '<br><span style="font-size: 10px; color: var(--ms-text-muted);">' + d.toLocaleDateString() + '</span></td>';
+        html += '  <td>';
+        html += '    <div style="font-weight: 500; color: var(--ms-text-high); line-height: 1.4; word-break: break-word;">' + escapeHtml(t.prompt) + '</div>';
+        html += '  </td>';
+        html += '  <td class="tabular" style="color: var(--ms-text-muted); font-size: 11px;">' + t.steps + ' 步</td>';
+        html += '  <td style="text-align: right;">';
+        html += '    <span class="tabular" style="font-size: 13px; font-weight: 600; color: var(--ms-blue-luminous);">~' + t.estTokens.toLocaleString() + '</span>';
+        html += '    <span style="font-size: 10px; color: var(--ms-text-muted);"> Tokens</span>';
+        html += '  </td>';
+        html += '</tr>';
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    async function refreshAllQuotas() {
+      showNotice('正在直连 Google Cloud 专有端点同步所有纳管账号配额...');
+      await fetch('/api/refresh-quotas', { method: 'POST' });
+      await loadData();
+      showNotice('所有小号配额已同步完成', true);
+    }
+
+    async function addNewAccount() {
+      const btn = document.getElementById('btnAddAccount');
+      btn.disabled = true;
+      btn.textContent = '发起授权...';
+
+      try {
+        const res = await fetch('/api/auth-url', { method: 'POST' });
+        const d = await res.json();
+        if (d.success) {
+          showNotice('请在弹出的 Google 网页完成授权，若未弹出请点击：', false, d.authUrl);
+        } else {
+          showNotice('启动授权服务失败: ' + (d.error || '未知错误'));
+        }
+      } catch (err) {
+        showNotice('请求异常: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> 添加小号 (OAuth)';
+      }
+    }
+
+    async function switchAccount(email) {
+      showNotice('正在热切换至 ' + email + '，更新系统钥匙串中...');
+      try {
+        const res = await fetch('/api/switch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const d = await res.json();
+        if (d.success) {
+          showNotice('已成功切换至 ' + email, true);
+          loadData();
+        } else {
+          showNotice('切换失败: ' + (d.error || '未知错误'));
+        }
+      } catch (err) {
+        showNotice('切换异常: ' + err.message);
+      }
+    }
+
+    async function deleteAccount(email) {
+      if (!confirm('确定从号池中移除账号 ' + email + ' 吗？')) return;
+      await fetch('/api/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      showNotice('已移除账号 ' + email, true);
+      loadData();
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('added')) {
+      showNotice('小号授权完成并已入池', true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    loadData();
+    setInterval(loadData, 15000);
+  </script>
+</body>
+</html>
