@@ -42,6 +42,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         
         let contentController = WKUserContentController()
         contentController.add(self, name: "dragWindow")
+        contentController.add(self, name: "openExternal")
         config.userContentController = contentController
         
         webView = DraggableWebView(frame: window.contentView!.bounds, configuration: config)
@@ -62,6 +63,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         if message.name == "dragWindow" {
             if let currentEvent = NSApp.currentEvent {
                 window.performDrag(with: currentEvent)
+            }
+        } else if message.name == "openExternal" {
+            if let urlStr = message.body as? String, let url = URL(string: urlStr) {
+                NSWorkspace.shared.open(url)
             }
         }
     }

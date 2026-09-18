@@ -813,12 +813,25 @@
         e.stopPropagation();
       }
       if (!url) return;
+
+      // 1. 原生 macOS Cocoa 宿主通道 (NSWorkspace.shared.open，100% 唤起默认浏览器)
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.openExternal) {
+        try {
+          window.webkit.messageHandlers.openExternal.postMessage(url);
+          return;
+        } catch (err) {
+          console.warn('Native openExternal message handler error:', err);
+        }
+      }
+
+      // 2. 本地 Node 守护进程操作系统指令
       fetch('/api/open-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       }).catch(err => console.error('打开外部链接失败:', err));
 
+      // 3. 浏览器窗口弹出兜底
       try {
         window.open(url, '_blank');
       } catch (err) {}
@@ -1131,8 +1144,9 @@
       try {
         const res = await fetch('/api/auth-url', { method: 'POST' });
         const d = await res.json();
-        if (d.success) {
-          showNotice('请在弹出的 Google 网页完成授权，若未弹出请点击：', false, d.authUrl);
+        if (d.success && d.authUrl) {
+          openExternalUrl(d.authUrl);
+          showNotice('正在外部浏览器打开 Google 授权页面，请在浏览器中完成登录与授权。若未自动弹出，请点击：', true, d.authUrl);
         } else {
           showNotice('启动授权服务失败: ' + (d.error || '未知错误'));
         }
