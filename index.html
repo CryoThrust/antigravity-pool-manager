@@ -1015,7 +1015,7 @@
 
         html += '  <td style="text-align: right;">';
         if (!isActive) {
-          html += '    <button class="fluent-btn" onclick="switchAccount(\'' + acc.email + '\')" style="margin-right: 4px;">切换为主凭据</button>';
+          html += '    <button class="fluent-btn" onclick="switchAccount(\'' + acc.email + '\', this)" style="margin-right: 4px;">切换为主凭据</button>';
         }
         html += '    <button class="fluent-btn subtle-danger" onclick="deleteAccount(\'' + acc.email + '\')">移除</button>';
         html += '  </td>';
@@ -1124,8 +1124,13 @@
       }
     }
 
-    async function switchAccount(email) {
-      showNotice('正在热切换至 ' + email + '，更新系统钥匙串中...');
+    async function switchAccount(email, btn) {
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span style="display:inline-block; animation: spin 0.8s linear infinite;">⏳</span> 正在切换...';
+      }
+      showNotice('正在热切换主凭据至 ' + email + '，正在无感重载底层语言服务...');
+      
       try {
         const res = await fetch('/api/switch', {
           method: 'POST',
@@ -1134,13 +1139,21 @@
         });
         const d = await res.json();
         if (d.success) {
-          showNotice('已成功切换至 ' + email, true);
-          loadData();
+          showNotice('🎉 已成功切换为主凭据: ' + email + '，底层 Antigravity 会话已无感接力！', true);
+          await loadData();
         } else {
           showNotice('切换失败: ' + (d.error || '未知错误'));
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = '切换为主凭据';
+          }
         }
       } catch (err) {
         showNotice('切换异常: ' + err.message);
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '切换为主凭据';
+        }
       }
     }
 

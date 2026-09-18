@@ -305,11 +305,20 @@ async function switchToAccount(targetEmail) {
   const acc = pool.accounts[targetEmail];
   if (!acc) throw new Error(`号池中未找到账号: ${targetEmail}`);
 
-  const refreshed = await refreshToken(acc.refresh_token);
-  acc.access_token = refreshed.access_token;
-  if (refreshed.id_token) acc.id_token = refreshed.id_token;
-  acc.expiry = refreshed.expiry;
-  acc.last_updated = new Date().toISOString();
+  // 1. 如果已有有效 access_token 且距离过期大于 5 分钟，直接使用；否则刷新
+  const now = Date.now();
+  const expiryTime = acc.expiry ? new Date(acc.expiry).getTime() : 0;
+  if (!acc.access_token || expiryTime - now < 5 * 60 * 1000) {
+    try {
+      const refreshed = await refreshToken(acc.refresh_token);
+      acc.access_token = refreshed.access_token;
+      if (refreshed.id_token) acc.id_token = refreshed.id_token;
+      acc.expiry = refreshed.expiry;
+      acc.last_updated = new Date().toISOString();
+    } catch (e) {
+      console.warn(`[切换账号] 刷新 Token 提示:`, e.message);
+    }
+  }
 
   const authData = {
     token: {
@@ -323,10 +332,13 @@ async function switchToAccount(targetEmail) {
   };
   writeKeychain(authData);
 
+  // 2. 写入全局激活标记
   pool.active = targetEmail;
   savePool(pool);
 
+  // 3. 触发语言服务热重载
   restartLanguageServer();
+  console.log(`[切号成功] 已成功将主凭据切换为: ${targetEmail}`);
   return acc;
 }
 
@@ -362,12 +374,12 @@ async function autoSilentRefreshRoutine() {
   for (const acc of accounts) {
     try {
       const q = await fetchAccountQuotaDirect(acc);
-      if (q) {
+      if (q && q.status !== 'ERROR') {
         acc.quota = q;
         acc.last_updated = new Date().toISOString();
         if (acc.email === currentActive) {
           const rem = q.gemini_5h?.remainingFraction ?? 1;
-          if (rem <= 0.02) {
+          if (rem <= 0.05) { // 提高阈值至 5%，更灵敏无感接力
             activeExhausted = true;
           }
         }
@@ -379,12 +391,12 @@ async function autoSilentRefreshRoutine() {
   // 3. 额度耗尽自动无感切号 (Auto Failover)
   if (pool.autoSwitch !== false && activeExhausted && accounts.length > 1) {
     const candidates = accounts
-      .filter(a => a.email !== currentActive)
+      .filter(a => a.email !== currentActive && a.quota?.status !== 'ERROR')
       .sort((a, b) => (b.quota?.gemini_5h?.remainingFraction || 0) - (a.quota?.gemini_5h?.remainingFraction || 0));
 
-    if (candidates.length > 0 && (candidates[0].quota?.gemini_5h?.remainingFraction || 0) > 0.15) {
+    if (candidates.length > 0 && (candidates[0].quota?.gemini_5h?.remainingFraction || 0) > 0.1) {
       const best = candidates[0];
-      console.log(`[无感切号] 检测到当前账号 ${currentActive} 5h额度已耗尽 (≤2%)，自动无感切号至高额度小号: ${best.email}`);
+      console.log(`[无感切号] 检测到当前账号 ${currentActive} 5h额度已见底 (≤5%)，自动无感切号至高额度小号: ${best.email}`);
       await switchToAccount(best.email);
     }
   }
@@ -679,11 +691,28 @@ const server = http.createServer(async (req, res) => {
     const cur = readCurrentKeychain();
     let currentSystemUser = null;
     if (cur?.token?.access_token) {
-      const uinfo = await fetchUserInfo(cur.token.access_token);
+      // 优先从 id_token 解码出真实 email 与 name，零网络延迟，避免网络请求滞后导致状态回跳
+      let email = null;
+      let name = null;
+      let picture = '';
+      if (cur.id_token) {
+        try {
+          const payload = JSON.parse(Buffer.from(cur.id_token.split('.')[1], 'base64').toString('utf8'));
+          email = payload.email;
+          name = payload.name;
+          picture = payload.picture || '';
+        } catch (e) {}
+      }
+      if (!email) {
+        const uinfo = await fetchUserInfo(cur.token.access_token);
+        email = uinfo?.email || '已登录账号';
+        name = uinfo?.name || '当前用户';
+        picture = uinfo?.picture || '';
+      }
       currentSystemUser = {
-        email: uinfo?.email || '已登录账号',
-        name: uinfo?.name || '当前用户',
-        picture: uinfo?.picture || '',
+        email,
+        name: name || email,
+        picture,
         expiry: cur.token.expiry
       };
     }

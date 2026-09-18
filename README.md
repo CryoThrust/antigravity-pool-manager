@@ -5,6 +5,21 @@
 
 ---
 
+## 📸 界面预览
+
+![Antigravity Pool Manager 仪表盘预览](docs/screenshots/dashboard_preview.png)
+
+---
+
+## 📦 安装包与一键运行下载
+
+您可以在 [GitHub Releases](https://github.com/CryoThrust/antigravity-pool-manager/releases) 下载打包好的安装介质：
+
+- 🍏 **macOS 安装包 (.dmg)**: [Antigravity-Manager-macOS.dmg](https://github.com/CryoThrust/antigravity-pool-manager/releases/download/v1.0.0/Antigravity-Manager-macOS.dmg)（下载后双击挂载，拖入 Applications 即可使用原生桌面端应用）
+- 🪟 **Windows 便携运行包 (.zip)**: [Antigravity-Manager-Windows.zip](https://github.com/CryoThrust/antigravity-pool-manager/releases/download/v1.0.0/Antigravity-Manager-Windows.zip)（解压后双击 `start.bat` 即可启动 WebUI 控制台）
+
+---
+
 ## ✨ 核心特性
 
 - 📊 **算力汇总仪表盘 (Power BI / Azure 极简工业美学)**:
