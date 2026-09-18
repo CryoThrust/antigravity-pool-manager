@@ -538,23 +538,34 @@ function getActiveConversationStats() {
 
     const active = sorted[0];
     const lines = fs.readFileSync(active.full, "utf8").trim().split("\n");
-    let totalChars = 0;
+    let inputChars = 0;
+    let outputChars = 0;
     let userTurns = 0;
     for (const line of lines) {
       try {
         const step = JSON.parse(line);
-        totalChars += (step.content || "").length + (step.thinking || "").length;
+        const c = (step.content || "").length;
+        const th = (step.thinking || "").length;
+        const tc = JSON.stringify(step.tool_calls || "").length;
+        if (step.source === "MODEL") {
+          outputChars += c + th + tc;
+        } else {
+          inputChars += c;
+        }
         if (step.source === "USER_INPUT") userTurns++;
       } catch(e) {}
     }
 
-    const estTokens = Math.round(totalChars / 2.8);
+    const inputTokens = Math.round(inputChars / 2.8);
+    const outputTokens = Math.round(outputChars / 2.8);
+    const estTokens = inputTokens + outputTokens;
     return {
       conversationId: active.id,
       mtime: active.mtime,
       totalSteps: lines.length,
       userTurns,
-      totalChars,
+      inputTokens: inputTokens.toLocaleString(),
+      outputTokens: outputTokens.toLocaleString(),
       estTokens: estTokens.toLocaleString()
     };
   } catch(e) {
@@ -601,8 +612,11 @@ function getAllTurnsList() {
             const c = (s.content || "").length;
             const th = (s.thinking || "").length;
             const tc = JSON.stringify(s.tool_calls || "").length;
-            if (s.source === "MODEL") current.outputChars += c + th;
-            else current.toolChars += c;
+            if (s.source === "MODEL") {
+              current.outputChars += c + th + tc;
+            } else {
+              current.toolChars += c;
+            }
           }
         } catch(e) {}
       }
@@ -612,12 +626,16 @@ function getAllTurnsList() {
     allTurns.sort((a, b) => new Date(b.time) - new Date(a.time));
 
     return allTurns.slice(0, 300).map(t => {
-      const estTokens = Math.round((t.inputChars + t.outputChars + t.toolChars) / 2.8);
+      const inputTokens = Math.round((t.inputChars + t.toolChars) / 2.8);
+      const outputTokens = Math.round(t.outputChars / 2.8);
+      const estTokens = inputTokens + outputTokens;
       return {
         convoId: t.convoId,
         time: t.time,
         prompt: t.prompt,
         steps: t.steps,
+        inputTokens,
+        outputTokens,
         estTokens
       };
     });

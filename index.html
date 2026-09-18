@@ -751,9 +751,9 @@
 
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
           <div class="kpi-tile" style="padding: 10px 14px;">
-            <span class="kpi-label">区间总消耗</span>
+            <span class="kpi-label">区间总消耗 (Total)</span>
             <div class="kpi-value" style="font-size: 18px; color: var(--ms-blue-luminous);" id="filterTotalTokens">--</div>
-            <span class="kpi-desc">Total Tokens</span>
+            <span class="kpi-desc" id="filterTokensBreakdown">输入 -- · 输出 --</span>
           </div>
           <div class="kpi-tile" style="padding: 10px 14px;">
             <span class="kpi-label">交互总轮次</span>
@@ -763,7 +763,7 @@
           <div class="kpi-tile" style="padding: 10px 14px;">
             <span class="kpi-label">单次平均消耗</span>
             <div class="kpi-value" style="font-size: 18px;" id="filterAvgTokens">--</div>
-            <span class="kpi-desc">Avg Tokens / Turn</span>
+            <span class="kpi-desc" id="filterAvgBreakdown">均次输入 -- · 输出 --</span>
           </div>
         </div>
 
@@ -771,14 +771,16 @@
           <table>
             <thead>
               <tr>
-                <th style="width: 140px;">时间戳</th>
-                <th>用户发送内容 (Prompt)</th>
-                <th style="width: 80px;">步骤</th>
-                <th style="text-align: right; width: 140px;">单次消耗</th>
+                <th style="width: 130px;">时间戳</th>
+                <th>用户指令 (Prompt)</th>
+                <th style="width: 70px;">步骤</th>
+                <th style="text-align: right; width: 110px;">输入 (Input)</th>
+                <th style="text-align: right; width: 110px;">输出 (Output)</th>
+                <th style="text-align: right; width: 120px;">总计 (Total)</th>
               </tr>
             </thead>
             <tbody id="turnTableBody">
-              <tr><td colspan="4" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">加载中...</td></tr>
+              <tr><td colspan="6" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">加载中...</td></tr>
             </tbody>
           </table>
         </div>
@@ -955,11 +957,16 @@
 
       // 4. 对话消耗 Tokens
       let totalTokens = 0;
-      (data.dialogTurns || []).forEach(t => { totalTokens += t.estTokens; });
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+      (data.dialogTurns || []).forEach(t => {
+        totalTokens += t.estTokens || 0;
+        totalInputTokens += t.inputTokens || 0;
+        totalOutputTokens += t.outputTokens || 0;
+      });
       document.getElementById('dashTotalTokens').textContent = totalTokens.toLocaleString();
       const turnsCount = (data.dialogTurns || []).length;
-      const avg = turnsCount > 0 ? Math.round(totalTokens / turnsCount) : 0;
-      document.getElementById('dashTokenSub').textContent = `${turnsCount} 轮对话交互 · 均次 ~${avg.toLocaleString()}`;
+      document.getElementById('dashTokenSub').textContent = `${turnsCount} 轮交互 · 输入 ~${totalInputTokens.toLocaleString()} · 输出 ~${totalOutputTokens.toLocaleString()}`;
     }
 
     function buildQuotaCell(bucket) {
@@ -1092,16 +1099,26 @@
       });
 
       let totalTokens = 0;
-      filtered.forEach(t => { totalTokens += t.estTokens; });
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+      filtered.forEach(t => {
+        totalTokens += t.estTokens || 0;
+        totalInputTokens += t.inputTokens || 0;
+        totalOutputTokens += t.outputTokens || 0;
+      });
       const count = filtered.length;
       const avg = count > 0 ? Math.round(totalTokens / count) : 0;
+      const avgIn = count > 0 ? Math.round(totalInputTokens / count) : 0;
+      const avgOut = count > 0 ? Math.round(totalOutputTokens / count) : 0;
 
       document.getElementById('filterTotalTokens').textContent = totalTokens.toLocaleString();
+      document.getElementById('filterTokensBreakdown').textContent = `输入 ~${totalInputTokens.toLocaleString()} · 输出 ~${totalOutputTokens.toLocaleString()}`;
       document.getElementById('filterTotalTurns').textContent = count;
       document.getElementById('filterAvgTokens').textContent = '~' + avg.toLocaleString();
+      document.getElementById('filterAvgBreakdown').textContent = `均次输入 ~${avgIn.toLocaleString()} · 输出 ~${avgOut.toLocaleString()}`;
 
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="color: var(--ms-text-muted); text-align: center; padding: 24px;">暂无匹配的对话记录</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="color: var(--ms-text-muted); text-align: center; padding: 24px;">暂无匹配的对话记录</td></tr>';
         return;
       }
 
@@ -1115,8 +1132,13 @@
         html += '  </td>';
         html += '  <td class="tabular" style="color: var(--ms-text-muted); font-size: 11px;">' + t.steps + ' 步</td>';
         html += '  <td style="text-align: right;">';
+        html += '    <span class="tabular" style="font-size: 12px; color: var(--ms-text-mid);">~' + (t.inputTokens || 0).toLocaleString() + '</span>';
+        html += '  </td>';
+        html += '  <td style="text-align: right;">';
+        html += '    <span class="tabular" style="font-size: 12px; color: var(--ms-green); font-weight: 500;">~' + (t.outputTokens || 0).toLocaleString() + '</span>';
+        html += '  </td>';
+        html += '  <td style="text-align: right;">';
         html += '    <span class="tabular" style="font-size: 13px; font-weight: 600; color: var(--ms-blue-luminous);">~' + t.estTokens.toLocaleString() + '</span>';
-        html += '    <span style="font-size: 10px; color: var(--ms-text-muted);"> Tokens</span>';
         html += '  </td>';
         html += '</tr>';
       });
