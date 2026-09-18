@@ -236,6 +236,7 @@ async function fetchAccountQuotaDirect(account) {
       const data = await res.json();
       const groups = data.groups || [];
       const parsed = {
+        status: 'OK',
         gemini_5h: null,
         gemini_weekly: null,
         claude_5h: null,
@@ -260,6 +261,22 @@ async function fetchAccountQuotaDirect(account) {
 
       account.quota = parsed;
       return parsed;
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      const reason = errData?.error?.details?.[0]?.reason || errData?.error?.status || `HTTP_${res.status}`;
+      const validationUrl = errData?.error?.details?.[0]?.metadata?.validation_url || null;
+      const errMsg = errData?.error?.message || res.statusText;
+      const parsedErr = {
+        status: 'ERROR',
+        errorCode: res.status,
+        reason,
+        message: errMsg,
+        validationUrl,
+        updated_at: new Date().toISOString()
+      };
+      account.quota = parsedErr;
+      console.warn(`[Quota] 查询账号 ${account.email} 异常 [${res.status}]: ${errMsg} (Reason: ${reason})`);
+      return parsedErr;
     }
   } catch (err) {
     console.error(`[Quota] 查询账号 ${account.email} 失败:`, err.message);
