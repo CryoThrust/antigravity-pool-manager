@@ -774,8 +774,8 @@
                 <th style="width: 130px;">时间戳</th>
                 <th>用户指令 (Prompt)</th>
                 <th style="width: 70px;">步骤</th>
-                <th style="text-align: right; width: 110px;">输入 (Input)</th>
-                <th style="text-align: right; width: 110px;">输出 (Output)</th>
+                <th style="text-align: right; width: 140px;">输入 (Input / 上下文)</th>
+                <th style="text-align: right; width: 100px;">输出 (Output)</th>
                 <th style="text-align: right; width: 120px;">总计 (Total)</th>
               </tr>
             </thead>
@@ -966,7 +966,8 @@
       });
       document.getElementById('dashTotalTokens').textContent = totalTokens.toLocaleString();
       const turnsCount = (data.dialogTurns || []).length;
-      document.getElementById('dashTokenSub').textContent = `${turnsCount} 轮交互 · 输入 ~${totalInputTokens.toLocaleString()} · 输出 ~${totalOutputTokens.toLocaleString()}`;
+      const ctxStr = data.sessionStats?.currentContextTokens ? ` · 当前上下文深度 ~${data.sessionStats.currentContextTokens}` : '';
+      document.getElementById('dashTokenSub').textContent = `${turnsCount} 轮对话交互${ctxStr} · 累计输入 ~${totalInputTokens.toLocaleString()}`;
     }
 
     function buildQuotaCell(bucket) {
@@ -1132,7 +1133,10 @@
         html += '  </td>';
         html += '  <td class="tabular" style="color: var(--ms-text-muted); font-size: 11px;">' + t.steps + ' 步</td>';
         html += '  <td style="text-align: right;">';
-        html += '    <span class="tabular" style="font-size: 12px; color: var(--ms-text-mid);">~' + (t.inputTokens || 0).toLocaleString() + '</span>';
+        html += '    <span class="tabular" style="font-size: 12px; color: var(--ms-text-mid); font-weight: 500;">~' + (t.inputTokens || 0).toLocaleString() + '</span>';
+        if (t.contextTokens) {
+          html += '    <div class="tabular" style="font-size: 10px; color: var(--ms-text-muted);" title="发起本轮时的历史累积上下文基数">上下文 ~' + t.contextTokens.toLocaleString() + '</div>';
+        }
         html += '  </td>';
         html += '  <td style="text-align: right;">';
         html += '    <span class="tabular" style="font-size: 12px; color: var(--ms-green); font-weight: 500;">~' + (t.outputTokens || 0).toLocaleString() + '</span>';

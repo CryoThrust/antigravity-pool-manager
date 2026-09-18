@@ -71,6 +71,45 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         }
     }
 
+    func findNodeExecutable() -> String {
+        let home = NSHomeDirectory()
+        let candidatePaths = [
+            "\(home)/.nvm/versions/node/v22.23.2/bin/node",
+            "/opt/homebrew/bin/node",
+            "/usr/local/bin/node",
+            "\(home)/.nvm/versions/node/v20.18.0/bin/node",
+            "\(home)/.nvm/versions/node/v18.20.4/bin/node",
+            "\(home)/.volta/bin/node",
+            "\(home)/.fnm/current/bin/node"
+        ]
+        for p in candidatePaths {
+            if FileManager.default.isExecutableFile(atPath: p) {
+                return p
+            }
+        }
+        let nvmDir = "\(home)/.nvm/versions/node"
+        if let subdirs = try? FileManager.default.contentsOfDirectory(atPath: nvmDir) {
+            for sub in subdirs.sorted().reversed() {
+                let p = "\(nvmDir)/\(sub)/bin/node"
+                if FileManager.default.isExecutableFile(atPath: p) {
+                    return p
+                }
+            }
+        }
+        let pipe = Pipe()
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        proc.arguments = ["-lc", "which node"]
+        proc.standardOutput = pipe
+        try? proc.run()
+        proc.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        if let path = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !path.isEmpty && FileManager.default.isExecutableFile(atPath: path) {
+            return path
+        }
+        return "node"
+    }
+
     func ensureServerRunning() {
         guard let url = URL(string: "http://localhost:3999/api/status") else { return }
         var request = URLRequest(url: url)
@@ -90,14 +129,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         
         if !isUp {
             let scriptPath = "/Users/yohanes/antigravity-switcher/server.mjs"
+            let nodePath = findNodeExecutable()
             let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["node", scriptPath]
+            if nodePath.hasPrefix("/") {
+                process.executableURL = URL(fileURLWithPath: nodePath)
+                process.arguments = [scriptPath]
+            } else {
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                process.arguments = ["node", scriptPath]
+            }
             process.currentDirectoryURL = URL(fileURLWithPath: "/Users/yohanes/antigravity-switcher")
+            
+            var env = ProcessInfo.processInfo.environment
+            let home = NSHomeDirectory()
+            let existingPath = env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+            env["PATH"] = "\(home)/.nvm/versions/node/v22.23.2/bin:/opt/homebrew/bin:/usr/local/bin:\(existingPath)"
+            process.environment = env
             process.standardOutput = nil
             process.standardError = nil
             try? process.run()
-            Thread.sleep(forTimeInterval: 0.6)
+            Thread.sleep(forTimeInterval: 1.2)
         }
     }
 
@@ -160,6 +211,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
             }
         }
         decisionHandler(.allow)
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        // 服务启动中如果短暂连接失败，延迟 0.6 秒自动重试，彻底解决黑屏问题
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.loadConsole()
+        }
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {

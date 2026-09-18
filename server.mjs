@@ -538,7 +538,8 @@ function getActiveConversationStats() {
 
     const active = sorted[0];
     const lines = fs.readFileSync(active.full, "utf8").trim().split("\n");
-    let inputChars = 0;
+    let runningContextChars = 40000; // 系统提示词、Agent 规则与工具定义等初始上下文基数 (~14k tokens)
+    let stepInputCharsTotal = 0;
     let outputChars = 0;
     let userTurns = 0;
     for (const line of lines) {
@@ -548,22 +549,26 @@ function getActiveConversationStats() {
         const th = (step.thinking || "").length;
         const tc = JSON.stringify(step.tool_calls || "").length;
         if (step.source === "MODEL") {
+          stepInputCharsTotal += runningContextChars;
           outputChars += c + th + tc;
+          runningContextChars += c + th + tc;
         } else {
-          inputChars += c;
+          runningContextChars += c;
         }
         if (step.source === "USER_INPUT") userTurns++;
       } catch(e) {}
     }
 
-    const inputTokens = Math.round(inputChars / 2.8);
+    const inputTokens = Math.round(stepInputCharsTotal / 2.8);
     const outputTokens = Math.round(outputChars / 2.8);
+    const currentContextTokens = Math.round(runningContextChars / 2.8);
     const estTokens = inputTokens + outputTokens;
     return {
       conversationId: active.id,
       mtime: active.mtime,
       totalSteps: lines.length,
       userTurns,
+      currentContextTokens: currentContextTokens.toLocaleString(),
       inputTokens: inputTokens.toLocaleString(),
       outputTokens: outputTokens.toLocaleString(),
       estTokens: estTokens.toLocaleString()
@@ -591,6 +596,7 @@ function getAllTurnsList() {
 
       const lines = fs.readFileSync(p, "utf8").trim().split("\n");
       let current = null;
+      let runningContextChars = 40000; // 系统基准上下文基数 (~14k tokens)
 
       for (const l of lines) {
         try {
@@ -603,19 +609,24 @@ function getAllTurnsList() {
               time: s.created_at,
               prompt: text || "(空指令)",
               steps: 0,
-              inputChars: (s.content || "").length,
+              contextAtStartChars: runningContextChars,
+              stepInputCharsTotal: 0,
               outputChars: 0,
               toolChars: 0
             };
+            runningContextChars += (s.content || "").length;
           } else if (current) {
             current.steps++;
             const c = (s.content || "").length;
             const th = (s.thinking || "").length;
             const tc = JSON.stringify(s.tool_calls || "").length;
             if (s.source === "MODEL") {
+              current.stepInputCharsTotal += runningContextChars;
               current.outputChars += c + th + tc;
+              runningContextChars += c + th + tc;
             } else {
               current.toolChars += c;
+              runningContextChars += c;
             }
           }
         } catch(e) {}
@@ -626,7 +637,10 @@ function getAllTurnsList() {
     allTurns.sort((a, b) => new Date(b.time) - new Date(a.time));
 
     return allTurns.slice(0, 300).map(t => {
-      const inputTokens = Math.round((t.inputChars + t.toolChars) / 2.8);
+      const contextTokens = Math.round(t.contextAtStartChars / 2.8);
+      const stepInputTokens = Math.round(t.stepInputCharsTotal / 2.8);
+      // 输入 Token 取本轮各步模型调用累计吞吐（若单步则为此时上下文基数）
+      const inputTokens = t.steps > 0 && stepInputTokens > 0 ? stepInputTokens : contextTokens;
       const outputTokens = Math.round(t.outputChars / 2.8);
       const estTokens = inputTokens + outputTokens;
       return {
@@ -634,6 +648,7 @@ function getAllTurnsList() {
         time: t.time,
         prompt: t.prompt,
         steps: t.steps,
+        contextTokens,
         inputTokens,
         outputTokens,
         estTokens
