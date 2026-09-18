@@ -15,10 +15,12 @@ rm -rf "${APP_BUNDLE}"
 mkdir -p "${APP_BUNDLE}/Contents/MacOS"
 mkdir -p "${APP_BUNDLE}/Contents/Resources"
 
-echo "==> 拷贝可执行文件与图标..."
+echo "==> 拷贝可执行文件与图标及内嵌资源..."
 cp "${SRC_DIR}/app/AntigravityManagerBinary" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 cp "${SRC_DIR}/app/AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
+cp "${SRC_DIR}/index.html" "${APP_BUNDLE}/Contents/Resources/index.html"
+cp "${SRC_DIR}/server.mjs" "${APP_BUNDLE}/Contents/Resources/server.mjs"
 
 echo "==> 写入 Info.plist..."
 cat << 'PLIST' > "${APP_BUNDLE}/Contents/Info.plist"

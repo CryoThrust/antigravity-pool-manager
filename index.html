@@ -550,7 +550,7 @@
         <span>ANTIGRAVITY POOL MANAGER</span>
         <span class="sep">/</span>
         <span>账号调度中心</span>
-        <span class="fluent-badge">
+        <span class="fluent-badge" id="coreStatusBadge">
           <span class="dot"></span> 正常运行
         </span>
       </div>
@@ -809,6 +809,10 @@
       document.body.classList.add('in-browser');
     }
 
+    // 跨环境 API 请求路由（支持 file:// 本地直开与 http:// 远端访问）
+    const API_BASE = window.location.protocol.startsWith('http') ? '' : 'http://localhost:3999';
+    const api = path => (API_BASE ? API_BASE + path : path);
+
     function openExternalUrl(url, e) {
       if (e) {
         e.preventDefault();
@@ -827,7 +831,7 @@
       }
 
       // 2. 本地 Node 守护进程操作系统指令
-      fetch('/api/open-url', {
+      fetch(api('/api/open-url'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
@@ -862,7 +866,7 @@
 
     async function toggleAutoSwitch(checkbox) {
       try {
-        const res = await fetch('/api/toggle-auto-switch', { method: 'POST' });
+        const res = await fetch(api('/api/toggle-auto-switch'), { method: 'POST' });
         const data = await res.json();
         checkbox.checked = data.autoSwitch;
         showNotice(data.autoSwitch ? '已启用「额度见底自动切号」' : '已停用「额度见底自动切号」', true);
@@ -871,9 +875,10 @@
       }
     }
 
-    async function loadData() {
+    async function loadData(retryCount = 0) {
       try {
-        const res = await fetch('/api/status');
+        const res = await fetch(api('/api/status'));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         renderActiveBar(data.currentSystemUser);
         renderTopDashboard(data);
@@ -884,8 +889,20 @@
         }
         rawTurnsList = data.dialogTurns || [];
         renderTurnLog();
+        const badge = document.getElementById('coreStatusBadge');
+        if (badge) {
+          badge.style.background = '';
+          badge.style.color = '';
+          badge.innerHTML = '<span class="dot"></span> 正常运行';
+        }
       } catch (e) {
-        console.error('加载状态异常:', e);
+        const badge = document.getElementById('coreStatusBadge');
+        if (badge) {
+          badge.style.background = 'rgba(245, 158, 11, 0.15)';
+          badge.style.color = '#f59e0b';
+          badge.innerHTML = '<span class="dot" style="background:#f59e0b; animation: pulse 1s infinite;"></span> 核心连接中...';
+        }
+        setTimeout(() => loadData(retryCount + 1), Math.min(600, 200 * Math.pow(1.2, retryCount)));
       }
     }
 
@@ -1157,7 +1174,7 @@
 
     async function refreshAllQuotas() {
       showNotice('正在直连 Google Cloud 专有端点同步所有纳管账号配额...');
-      await fetch('/api/refresh-quotas', { method: 'POST' });
+      await fetch(api('/api/refresh-quotas'), { method: 'POST' });
       await loadData();
       showNotice('所有小号配额已同步完成', true);
     }
@@ -1168,7 +1185,7 @@
       btn.textContent = '发起授权...';
 
       try {
-        const res = await fetch('/api/auth-url', { method: 'POST' });
+        const res = await fetch(api('/api/auth-url'), { method: 'POST' });
         const d = await res.json();
         if (d.success && d.authUrl) {
           openExternalUrl(d.authUrl);
@@ -1192,7 +1209,7 @@
       showNotice('正在热切换主凭据至 ' + email + '，正在无感重载底层语言服务...');
       
       try {
-        const res = await fetch('/api/switch', {
+        const res = await fetch(api('/api/switch'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email })
@@ -1219,7 +1236,7 @@
 
     async function deleteAccount(email) {
       if (!confirm('确定从号池中移除账号 ' + email + ' 吗？')) return;
-      await fetch('/api/delete', {
+      await fetch(api('/api/delete'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })

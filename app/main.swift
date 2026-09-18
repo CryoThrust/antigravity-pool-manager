@@ -128,7 +128,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         _ = semaphore.wait(timeout: .now() + 0.6)
         
         if !isUp {
-            let scriptPath = "/Users/yohanes/antigravity-switcher/server.mjs"
+            var scriptPath = "/Users/yohanes/antigravity-switcher/server.mjs"
+            if let bundleScript = Bundle.main.url(forResource: "server", withExtension: "mjs")?.path, FileManager.default.fileExists(atPath: bundleScript) {
+                scriptPath = bundleScript
+            }
             let nodePath = findNodeExecutable()
             let process = Process()
             if nodePath.hasPrefix("/") {
@@ -138,7 +141,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
                 process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
                 process.arguments = ["node", scriptPath]
             }
-            process.currentDirectoryURL = URL(fileURLWithPath: "/Users/yohanes/antigravity-switcher")
+            process.currentDirectoryURL = URL(fileURLWithPath: (scriptPath as NSString).deletingLastPathComponent)
             
             var env = ProcessInfo.processInfo.environment
             let home = NSHomeDirectory()
@@ -148,11 +151,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
             process.standardOutput = nil
             process.standardError = nil
             try? process.run()
-            Thread.sleep(forTimeInterval: 1.2)
         }
     }
 
     func loadConsole() {
+        // 1. 优先秒开 App Bundle 内置的 index.html（0 毫秒极速瞬启，绝对无黑屏）
+        if let localHTML = Bundle.main.url(forResource: "index", withExtension: "html") {
+            webView.loadFileURL(localHTML, allowingReadAccessTo: localHTML.deletingLastPathComponent())
+            return
+        }
+        // 2. 备用源码目录的 index.html
+        let fallbackHTML = URL(fileURLWithPath: "/Users/yohanes/antigravity-switcher/index.html")
+        if FileManager.default.fileExists(atPath: fallbackHTML.path) {
+            webView.loadFileURL(fallbackHTML, allowingReadAccessTo: fallbackHTML.deletingLastPathComponent())
+            return
+        }
+        // 3. 兜底 HTTP 方式
         if let url = URL(string: "http://localhost:3999") {
             webView.load(URLRequest(url: url))
         }

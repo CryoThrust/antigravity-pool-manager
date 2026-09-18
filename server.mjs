@@ -700,6 +700,17 @@ function getConversationHistoryList() {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost:3999');
 
+  // 全局 CORS 跨源访问与预检支持
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   const sendJSON = (data, status = 200) => {
     res.writeHead(status, {
       'Content-Type': 'application/json; charset=utf-8',
