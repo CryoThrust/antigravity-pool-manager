@@ -798,6 +798,26 @@ const server = http.createServer(async (req, res) => {
     return sendJSON({ success: true, autoSwitch: pool.autoSwitch });
   }
 
+  if (url.pathname === '/api/open-url' && req.method === 'POST') {
+    const body = await readBody();
+    const targetUrl = body.url;
+    if (targetUrl && (targetUrl.startsWith('https://') || targetUrl.startsWith('http://'))) {
+      try {
+        if (IS_WIN) {
+          exec(`start "" "${targetUrl}"`);
+        } else if (process.platform === 'darwin') {
+          exec(`open "${targetUrl}"`);
+        } else {
+          exec(`xdg-open "${targetUrl}"`);
+        }
+        return sendJSON({ success: true });
+      } catch (e) {
+        return sendJSON({ error: e.message }, 500);
+      }
+    }
+    return sendJSON({ error: 'Invalid URL' }, 400);
+  }
+
   if (url.pathname === '/api/delete' && req.method === 'POST') {
     const body = await readBody();
     const email = body.email;

@@ -807,6 +807,23 @@
       document.body.classList.add('in-browser');
     }
 
+    function openExternalUrl(url, e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      if (!url) return;
+      fetch('/api/open-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      }).catch(err => console.error('打开外部链接失败:', err));
+
+      try {
+        window.open(url, '_blank');
+      } catch (err) {}
+    }
+
     function showNotice(text, isSuccess = false, authUrl = null) {
       const box = document.getElementById('noticeBox');
       const txt = document.getElementById('noticeText');
@@ -821,6 +838,7 @@
         a.target = '_blank';
         a.className = 'fluent-btn primary';
         a.textContent = '点此前往 Google 授权页面 →';
+        a.onclick = (e) => openExternalUrl(authUrl, e);
         actions.appendChild(a);
       }
 
@@ -992,7 +1010,8 @@
         if (isActive) {
           html += '<span class="status-badge status-active">挂载中</span>';
         } else if (q?.status === 'ERROR' && q?.validationUrl) {
-          html += '<a href="' + q.validationUrl + '" target="_blank" class="status-badge" style="background: var(--ms-amber-bg); color: var(--ms-amber); text-decoration: none; border: 1px solid rgba(245,158,11,0.3);" title="Google要求验证此账号">需验证 ↗</a>';
+          const safeUrl = (q.validationUrl || '').replace(/"/g, '&quot;');
+          html += '<a href="' + safeUrl + '" target="_blank" onclick="openExternalUrl(\'' + encodeURI(q.validationUrl) + '\', event)" class="status-badge" style="background: var(--ms-amber-bg); color: var(--ms-amber); text-decoration: none; border: 1px solid rgba(245,158,11,0.3); cursor: pointer;" title="Google要求验证此账号">需验证 ↗</a>';
         } else if (q?.status === 'ERROR') {
           html += '<span class="status-badge" style="background: var(--ms-red-bg); color: var(--ms-red);" title="' + (q.message || '') + '">异常</span>';
         } else {
@@ -1001,9 +1020,10 @@
         html += '  </td>';
         
         if (q?.status === 'ERROR' && q?.validationUrl) {
+          const safeUrl = (q.validationUrl || '').replace(/"/g, '&quot;');
           html += '<td colspan="3" style="color: var(--ms-amber); font-size: 11px;">';
           html += '  <span>Google 提示需点击验证: </span>';
-          html += '  <a href="' + q.validationUrl + '" target="_blank" style="color: var(--ms-blue-luminous); text-decoration: underline; font-weight: 500;">点此完成 Google 账号安全验证 →</a>';
+          html += '  <a href="' + safeUrl + '" target="_blank" onclick="openExternalUrl(\'' + encodeURI(q.validationUrl) + '\', event)" style="color: var(--ms-blue-luminous); text-decoration: underline; font-weight: 500; cursor: pointer;">点此完成 Google 账号安全验证 →</a>';
           html += '</td>';
         } else if (q?.status === 'ERROR') {
           html += '<td colspan="3" style="color: var(--ms-red); font-size: 11px;">' + (q.message || '获取配额失败') + '</td>';
