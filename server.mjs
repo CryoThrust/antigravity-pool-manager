@@ -697,6 +697,311 @@ function getConversationHistoryList() {
   }
 }
 
+// ─── 统一聚合网关 (OpenAI 兼容 /v1 与多源调度核心) ─────────────────────────────
+
+const GATEWAY_MODELS = [
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (官方极速)", source: "AI Studio (1500次/天)", description: "新一代多模态旗舰，极速低延迟" },
+  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (官方满血)", source: "AI Studio (1500次/天)", description: "超强综合逻辑推理与200万超大上下文" },
+  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash (官方轻量)", source: "AI Studio (1500次/天)", description: "轻量快速任务" },
+  { id: "gemini-2.0-flash-thinking-exp", name: "Gemini 2.0 Flash Thinking (官方思考)", source: "AI Studio (1500次/天)", description: "带思维链推理与多步规划" },
+  { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro (Web Pro会员专属)", source: "Gemini Web (Pro)", description: "满血 Pro 会员模型，无限额度" },
+  { id: "gemini-3.5-flash-thinking", name: "Gemini 3.5 Flash Thinking (Web 深度思考)", source: "Gemini Web", description: "扩展思考，最长支持2万字长篇输出" },
+  { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash (Web 全能)", source: "Gemini Web", description: "全能 Web 模型" },
+  { id: "gemini-flash-lite", name: "Gemini Flash Lite (Web 极速)", source: "Gemini Web", description: "超快轻量响应" }
+];
+
+function resetDailyQuotasIfNeeded(pool) {
+  const today = new Date().toISOString().slice(0, 10);
+  let changed = false;
+  for (const acc of Object.values(pool.accounts || {})) {
+    if (!acc.ai_studio) {
+      acc.ai_studio = {
+        api_key: "",
+        daily_limit: 1500,
+        used_today: 0,
+        last_reset: today,
+        status: "not_configured"
+      };
+      changed = true;
+    } else if (acc.ai_studio.last_reset !== today) {
+      acc.ai_studio.used_today = 0;
+      acc.ai_studio.last_reset = today;
+      if (acc.ai_studio.api_key) acc.ai_studio.status = "active";
+      changed = true;
+    }
+    if (!acc.web_auth) {
+      acc.web_auth = {
+        cookie: "",
+        is_pro: false,
+        status: "not_configured"
+      };
+      changed = true;
+    }
+  }
+  if (changed) savePool(pool);
+}
+
+function resolveModelTarget(requestedModel) {
+  const req = (requestedModel || '').toLowerCase().trim();
+  if (req.startsWith('web-') || req.startsWith('gemini-3.') || req === 'gemini-auto' || req.includes('@think')) {
+    const cleanName = req.replace(/^web-/, '');
+    return { type: 'web', model: cleanName || 'gemini-3.6-flash' };
+  }
+  if (req.includes('pro') || req.startsWith('gpt-4') || req.startsWith('claude-3-5')) {
+    return { type: 'ai_studio', model: 'gemini-1.5-pro' };
+  }
+  if (req.includes('thinking')) {
+    return { type: 'ai_studio', model: 'gemini-2.0-flash-thinking-exp' };
+  }
+  return { type: 'ai_studio', model: req.startsWith('gemini-') ? req : 'gemini-2.0-flash' };
+}
+
+function formatGeminiPayload(messages) {
+  let systemInstruction = null;
+  const contents = [];
+  for (const m of messages || []) {
+    if (m.role === 'system') {
+      systemInstruction = { parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }] };
+    } else {
+      const role = m.role === 'assistant' ? 'model' : 'user';
+      const text = typeof m.content === 'string' ? m.content : (Array.isArray(m.content) ? m.content.map(c => c.text || '').join('\n') : JSON.stringify(m.content));
+      contents.push({ role, parts: [{ text }] });
+    }
+  }
+  if (contents.length === 0) {
+    contents.push({ role: 'user', parts: [{ text: 'Hello' }] });
+  }
+  const payload = { contents };
+  if (systemInstruction) payload.system_instruction = systemInstruction;
+  return payload;
+}
+
+// 自动保活与启动 web2api 逆向服务
+let web2ApiProc = null;
+function ensureWeb2ApiWorker() {
+  const scriptPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'web2api', 'gemini_web2api.py');
+  if (!fs.existsSync(scriptPath)) return;
+  http.get('http://localhost:8085/v1/models', res => {
+    // 已正常运行
+  }).on('error', () => {
+    try {
+      web2ApiProc = exec(`python3 "${scriptPath}" --port 8085`);
+      web2ApiProc.unref();
+      console.log('已在后台自启动 Gemini Web 反代网关 (端口 8085)');
+    } catch (e) {}
+  });
+}
+ensureWeb2ApiWorker();
+setInterval(ensureWeb2ApiWorker, 30000);
+
+async function forwardToWebProxy(req, res, body, model) {
+  const forwardBody = { ...body, model };
+  try {
+    const upstream = await fetch('http://localhost:8085/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer any'
+      },
+      body: JSON.stringify(forwardBody)
+    });
+
+    res.writeHead(upstream.status, {
+      'Content-Type': upstream.headers.get('content-type') || 'application/json',
+      'Access-Control-Allow-Origin': '*'
+    });
+
+    if (upstream.body) {
+      const reader = upstream.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(value);
+      }
+    }
+    res.end();
+  } catch (err) {
+    res.writeHead(502, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end(JSON.stringify({
+      error: {
+        message: `无法连接到本地 Web 反代网关服务: ${err.message}`,
+        type: 'gateway_error'
+      }
+    }));
+  }
+}
+
+async function callAIStudioStream(email, acc, pool, key, model, messages, res) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
+  const payload = formatGeminiPayload(messages);
+
+  const upstream = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!upstream.ok) {
+    const errText = await upstream.text();
+    const isQuota = upstream.status === 429 || errText.includes('RESOURCE_EXHAUSTED');
+    const err = new Error(`HTTP ${upstream.status}: ${errText}`);
+    err.isQuota = isQuota;
+    throw err;
+  }
+
+  acc.ai_studio.used_today = (acc.ai_studio.used_today || 0) + 1;
+  savePool(pool);
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*'
+  });
+
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  const cmplId = 'chatcmpl-' + Math.random().toString(36).slice(2, 10);
+  const created = Math.floor(Date.now() / 1000);
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data:')) continue;
+      const jsonStr = trimmed.slice(5).trim();
+      if (!jsonStr) continue;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (text) {
+          const chunk = {
+            id: cmplId,
+            object: 'chat.completion.chunk',
+            created,
+            model,
+            choices: [{
+              index: 0,
+              delta: { content: text },
+              finish_reason: null
+            }]
+          };
+          res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        }
+      } catch (e) {}
+    }
+  }
+
+  const finishChunk = {
+    id: cmplId,
+    object: 'chat.completion.chunk',
+    created,
+    model,
+    choices: [{
+      index: 0,
+      delta: {},
+      finish_reason: 'stop'
+    }]
+  };
+  res.write(`data: ${JSON.stringify(finishChunk)}\n\n`);
+  res.write(`data: [DONE]\n\n`);
+  res.end();
+}
+
+async function callAIStudioNonStream(email, acc, pool, key, model, messages) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+  const payload = formatGeminiPayload(messages);
+
+  const upstream = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!upstream.ok) {
+    const errText = await upstream.text();
+    const isQuota = upstream.status === 429 || errText.includes('RESOURCE_EXHAUSTED');
+    const err = new Error(`HTTP ${upstream.status}: ${errText}`);
+    err.isQuota = isQuota;
+    throw err;
+  }
+
+  const data = await upstream.json();
+  acc.ai_studio.used_today = (acc.ai_studio.used_today || 0) + 1;
+  savePool(pool);
+
+  const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return {
+    id: 'chatcmpl-' + Math.random().toString(36).slice(2, 10),
+    object: 'chat.completion',
+    created: Math.floor(Date.now() / 1000),
+    model,
+    choices: [{
+      index: 0,
+      message: { role: 'assistant', content: replyText },
+      finish_reason: 'stop'
+    }],
+    usage: {
+      prompt_tokens: data.usageMetadata?.promptTokenCount || 0,
+      completion_tokens: data.usageMetadata?.candidatesTokenCount || 0,
+      total_tokens: data.usageMetadata?.totalTokenCount || 0
+    }
+  };
+}
+
+async function handleChatCompletions(req, res, body) {
+  const pool = loadPool();
+  resetDailyQuotasIfNeeded(pool);
+
+  const { model: reqModel, messages, stream = false } = body;
+  const target = resolveModelTarget(reqModel);
+
+  if (target.type === 'web') {
+    return forwardToWebProxy(req, res, body, target.model);
+  }
+
+  // 筛选可用 AI Studio Key（按使用量从低到高排序，实现负载均衡）
+  const candidateAccounts = Object.entries(pool.accounts || {})
+    .filter(([_, acc]) => acc.ai_studio?.api_key && acc.ai_studio?.status !== 'exhausted' && (acc.ai_studio?.used_today || 0) < (acc.ai_studio?.daily_limit || 1500))
+    .sort((a, b) => (a[1].ai_studio.used_today || 0) - (b[1].ai_studio.used_today || 0));
+
+  if (candidateAccounts.length === 0) {
+    console.log('AI Studio 算力池无可用 Key，自动弹性降级至 Web 反代通道...');
+    return forwardToWebProxy(req, res, body, 'gemini-3.6-flash');
+  }
+
+  for (const [email, acc] of candidateAccounts) {
+    const key = acc.ai_studio.api_key;
+    try {
+      if (stream) {
+        return await callAIStudioStream(email, acc, pool, key, target.model, messages, res);
+      } else {
+        const result = await callAIStudioNonStream(email, acc, pool, key, target.model, messages);
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*'
+        });
+        return res.end(JSON.stringify(result));
+      }
+    } catch (err) {
+      console.warn(`账号 ${email} 调用异常: ${err.message}，正在无感故障转移至下一个账号...`);
+      if (err.isQuota) {
+        acc.ai_studio.status = 'exhausted';
+        acc.ai_studio.used_today = acc.ai_studio.daily_limit || 1500;
+        savePool(pool);
+      }
+    }
+  }
+
+  return forwardToWebProxy(req, res, body, 'gemini-3.6-flash');
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost:3999');
 
@@ -763,6 +1068,7 @@ const server = http.createServer(async (req, res) => {
 
     const pool = loadPool();
 
+    resetDailyQuotasIfNeeded(pool);
     // 动态并发刷新号池中所有账号的配额
     const accountList = Object.values(pool.accounts);
     for (const acc of accountList) {
@@ -773,6 +1079,30 @@ const server = http.createServer(async (req, res) => {
     }
     savePool(pool);
 
+    let totalApiStudioCapacity = 0;
+    let totalApiStudioUsed = 0;
+    let boundKeysCount = 0;
+    let hasWebPro = false;
+    for (const acc of accountList) {
+      if (acc.ai_studio?.api_key) {
+        boundKeysCount++;
+        totalApiStudioCapacity += (acc.ai_studio.daily_limit || 1500);
+        totalApiStudioUsed += (acc.ai_studio.used_today || 0);
+      }
+      if (acc.web_auth?.is_pro && acc.web_auth?.status === 'active') {
+        hasWebPro = true;
+      }
+    }
+    const gateway = {
+      baseUrl: 'http://localhost:3999/v1',
+      boundKeysCount,
+      totalCapacity: totalApiStudioCapacity,
+      totalUsedToday: totalApiStudioUsed,
+      totalRemaining: Math.max(0, totalApiStudioCapacity - totalApiStudioUsed),
+      hasWebPro,
+      models: GATEWAY_MODELS
+    };
+
     const sessionStats = getActiveConversationStats();
     const conversations = getConversationHistoryList();
     const dialogTurns = getAllTurnsList();
@@ -782,6 +1112,7 @@ const server = http.createServer(async (req, res) => {
       dialogTurns,
       currentSystemUser,
       autoSwitch: pool.autoSwitch !== false,
+      gateway,
       pool: {
         active: pool.active,
         autoSwitch: pool.autoSwitch,
@@ -872,6 +1203,115 @@ const server = http.createServer(async (req, res) => {
       savePool(pool);
     }
     return sendJSON({ success: true });
+  }
+
+  // ─── OpenAI 兼容模型列表 ─────────────────────────────
+  if (url.pathname === '/v1/models' && req.method === 'GET') {
+    return sendJSON({
+      object: 'list',
+      data: GATEWAY_MODELS.map(m => ({
+        id: m.id,
+        object: 'model',
+        created: 1700000000,
+        owned_by: 'google',
+        description: m.description,
+        source: m.source
+      }))
+    });
+  }
+
+  // ─── OpenAI 兼容聊天补全端点 ─────────────────────────────
+  if (url.pathname === '/v1/chat/completions' && req.method === 'POST') {
+    const body = await readBody();
+    return handleChatCompletions(req, res, body);
+  }
+
+  // ─── 绑定与测试 AI Studio API Key ─────────────────────────────
+  if (url.pathname === '/api/account/bind-ai-key' && req.method === 'POST') {
+    const body = await readBody();
+    const { email, apiKey } = body;
+    if (!email || !apiKey) return sendJSON({ error: '缺少账号邮箱或 API Key' }, 400);
+
+    try {
+      const testRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }] })
+      });
+      const data = await testRes.json();
+      if (!testRes.ok) {
+        return sendJSON({ error: `Google 官方校验失败: ${data.error?.message || testRes.statusText}` }, 400);
+      }
+    } catch (err) {
+      return sendJSON({ error: `网络连接异常: ${err.message}` }, 500);
+    }
+
+    const pool = loadPool();
+    if (pool.accounts[email]) {
+      const today = new Date().toISOString().slice(0, 10);
+      pool.accounts[email].ai_studio = {
+        api_key: apiKey.trim(),
+        daily_limit: 1500,
+        used_today: 0,
+        last_reset: today,
+        status: 'active'
+      };
+      savePool(pool);
+      return sendJSON({ success: true, message: 'Google AI Studio API Key 验证通过并已激活！' });
+    }
+    return sendJSON({ error: '未找到指定账号' }, 404);
+  }
+
+  // ─── 绑定与测试 Web Cookie 凭据 ─────────────────────────────
+  if (url.pathname === '/api/account/bind-web-auth' && req.method === 'POST') {
+    const body = await readBody();
+    const { email, cookie, isPro } = body;
+    if (!email || !cookie) return sendJSON({ error: '缺少账号邮箱或 Cookie 内容' }, 400);
+
+    const pool = loadPool();
+    if (pool.accounts[email]) {
+      pool.accounts[email].web_auth = {
+        cookie: cookie.trim(),
+        is_pro: !!isPro,
+        status: 'active',
+        updated_at: new Date().toISOString()
+      };
+      savePool(pool);
+
+      try {
+        const cookieFilePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'web2api', 'cookie.txt');
+        fs.writeFileSync(cookieFilePath, cookie.trim(), 'utf8');
+      } catch (e) {}
+
+      return sendJSON({ success: true, message: 'Web 会话凭据已同步！' });
+    }
+    return sendJSON({ error: '未找到指定账号' }, 404);
+  }
+
+  // ─── 单测指定账号的 AI Studio Key ─────────────────────────────
+  if (url.pathname === '/api/account/test-ai-key' && req.method === 'POST') {
+    const body = await readBody();
+    const pool = loadPool();
+    const acc = pool.accounts[body.email];
+    if (!acc?.ai_studio?.api_key) return sendJSON({ error: '该账号尚未绑定 API Key' }, 400);
+
+    const startTime = Date.now();
+    try {
+      const testRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${acc.ai_studio.api_key}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: "请回复四个字：测试成功" }] }] })
+      });
+      const data = await testRes.json();
+      const elapsed = Date.now() - startTime;
+      if (!testRes.ok) {
+        return sendJSON({ error: `Google 校验失败: ${data.error?.message || testRes.statusText}` }, 400);
+      }
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      return sendJSON({ success: true, elapsed, reply });
+    } catch (err) {
+      return sendJSON({ error: err.message }, 500);
+    }
   }
 
   if (url.pathname === '/' || url.pathname === '/index.html') {
