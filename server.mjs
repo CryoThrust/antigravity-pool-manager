@@ -1151,7 +1151,14 @@ const server = http.createServer(async (req, res) => {
     let totalApiStudioUsed = 0;
     let boundKeysCount = 0;
     let hasWebPro = false;
+    let proAccountsCount = 0;
+    let standardAccountsCount = 0;
+
     for (const acc of accountList) {
+      const isPro = acc.tier === 'pro' || !!(acc.web_auth?.is_pro);
+      if (isPro) proAccountsCount++;
+      else standardAccountsCount++;
+
       const dailyLimit = acc.ai_studio?.daily_limit || 1500;
       const usedToday = acc.ai_studio?.used_today || 0;
       totalApiStudioCapacity += dailyLimit;
@@ -1159,7 +1166,7 @@ const server = http.createServer(async (req, res) => {
       if (acc.ai_studio?.api_key) {
         boundKeysCount++;
       }
-      if (acc.web_auth?.is_pro && acc.web_auth?.status === 'active') {
+      if (isPro && acc.web_auth?.status === 'active') {
         hasWebPro = true;
       }
     }
@@ -1171,17 +1178,20 @@ const server = http.createServer(async (req, res) => {
     const gateway = {
       baseUrl: 'http://localhost:3999/v1',
       accountsCount: accountList.length,
+      proAccountsCount,
+      standardAccountsCount,
       boundKeysCount,
       totalCapacity: totalApiStudioCapacity,
       totalUsedToday: totalApiStudioUsed,
       totalRemaining,
       percentRemaining,
-      hasWebPro,
+      hasWebPro: proAccountsCount > 0,
       webQuota: {
         type: 'unlimited',
-        desc: '无限调用 (无每日次数限制)',
+        desc: proAccountsCount > 0 ? `无限调用 (含 ${proAccountsCount} 个 PRO 会员专线)` : '无限调用 (无每日次数限制)',
         status: 'ready',
-        hasPro: hasWebPro
+        hasPro: proAccountsCount > 0,
+        proCount: proAccountsCount
       },
       models: modelsList
     };
@@ -1199,6 +1209,8 @@ const server = http.createServer(async (req, res) => {
       pool: {
         active: pool.active,
         autoSwitch: pool.autoSwitch,
+        proAccountsCount,
+        standardAccountsCount,
         accounts: accountList
       }
     });
@@ -1207,6 +1219,25 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/accounts') {
     const pool = loadPool();
     return sendJSON(Object.values(pool.accounts || {}));
+  }
+
+  if (url.pathname === '/api/account/set-tier' && req.method === 'POST') {
+    const body = await readBody();
+    const { email, tier } = body;
+    if (!email) return sendJSON({ error: '缺少账号邮箱' }, 400);
+
+    const pool = loadPool();
+    if (!pool.accounts[email]) return sendJSON({ error: '账号不存在' }, 404);
+
+    const targetTier = tier === 'pro' ? 'pro' : 'standard';
+    pool.accounts[email].tier = targetTier;
+    if (!pool.accounts[email].web_auth) {
+      pool.accounts[email].web_auth = { cookie: '', is_pro: targetTier === 'pro', status: 'not_configured' };
+    } else {
+      pool.accounts[email].web_auth.is_pro = (targetTier === 'pro');
+    }
+    savePool(pool);
+    return sendJSON({ success: true, email, tier: targetTier });
   }
 
   if (url.pathname === '/api/history') {

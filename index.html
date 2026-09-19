@@ -572,6 +572,24 @@
       background: rgba(0, 120, 212, 0.12);
       color: var(--accent-blue-glow);
     }
+    .badge.pro {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.32);
+      color: #f59e0b;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .badge.std {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-card);
+      color: var(--text-muted);
+    }
+    .row-pro td:first-child {
+      border-left: 2px solid #f59e0b;
+    }
+    .row-std td:first-child {
+      border-left: 2px solid transparent;
+    }
 
     /* 搜索框 */
     .search-input {
@@ -891,25 +909,34 @@
           <div class="pro-card-header">
             <div class="pro-card-title">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
-              纳管小号集群多源算力矩阵
+              纳管账号集群与分级算力矩阵
             </div>
-            <button class="btn mini primary" onclick="triggerAddAccountAuto()">+ 接入新账号</button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="display: flex; gap: 4px;" id="accountTierFilterGroup">
+                <button class="btn mini primary" id="btnFilterTierAll" onclick="setAccountTierFilter('all', this)">全部 (6)</button>
+                <button class="btn mini" id="btnFilterTierPro" onclick="setAccountTierFilter('pro', this)" style="color: #f59e0b;">★ PRO 会员 (2)</button>
+                <button class="btn mini" id="btnFilterTierStd" onclick="setAccountTierFilter('standard', this)">标准账号 (4)</button>
+              </div>
+              <button class="btn mini primary" onclick="triggerAddAccountAuto()">+ 接入新账号</button>
+            </div>
           </div>
 
           <div class="pro-table-box">
             <table style="table-layout: fixed; width: 100%;">
               <colgroup>
-                <col style="width: 25%;">
+                <col style="width: 22%;">
+                <col style="width: 11%;">
+                <col style="width: 8%;">
                 <col style="width: 10%;">
-                <col style="width: 13%;">
-                <col style="width: 13%;">
-                <col style="width: 17%;">
-                <col style="width: 11%;">
-                <col style="width: 11%;">
+                <col style="width: 10%;">
+                <col style="width: 14%;">
+                <col style="width: 10%;">
+                <col style="width: 15%;">
               </colgroup>
               <thead>
                 <tr>
                   <th>账号身份</th>
+                  <th>账号等级</th>
                   <th>状态</th>
                   <th>Gemini 5h</th>
                   <th>周度配额</th>
@@ -919,7 +946,7 @@
                 </tr>
               </thead>
               <tbody id="poolTableBody">
-                <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">加载账号中...</td></tr>
+                <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">加载账号中...</td></tr>
               </tbody>
             </table>
           </div>
@@ -1096,12 +1123,15 @@ print(resp.choices[0].message.content)</pre>
       <div class="pro-card" style="padding: 12px;">
         <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
           <span>当前挂载主凭据</span>
-          <span class="badge blue">macOS Keychain</span>
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <span class="badge" id="activeAccountTierBadge">PRO 会员</span>
+            <span class="badge blue">Keychain</span>
+          </div>
         </div>
         <div style="font-size: 13px; font-weight: 600; color: var(--text-high); word-break: break-all;" id="activeEmailText">
           读取中...
         </div>
-        <div style="font-size: 11px; color: var(--text-mid); display: flex; align-items: center; gap: 4px;">
+        <div style="font-size: 11px; color: var(--text-mid); display: flex; align-items: center; gap: 4px;" id="activeAccountPrivilegeText">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
           <span>自动续期: 剩余充足</span>
         </div>
@@ -1132,13 +1162,17 @@ print(resp.choices[0].message.content)</pre>
       <!-- C. 号池健康雷达 -->
       <div class="pro-card" style="padding: 12px;">
         <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
-          <span>号池健康雷达</span>
+          <span>号池分级雷达</span>
           <span class="badge green" id="radarHealthBadge">健康</span>
         </div>
         <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px; font-size: 11px;">
           <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-mid);">可用账号数:</span>
-            <span style="font-family: var(--font-mono); font-weight: 600;" id="radarAccountsText">6 / 6 正常</span>
+            <span style="color: var(--text-mid);">PRO 会员专线:</span>
+            <span style="font-family: var(--font-mono); font-weight: 600; color: #f59e0b;" id="radarProAccountsText">2 / 6 (高优先)</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-mid);">标准基础账号:</span>
+            <span style="font-family: var(--font-mono); font-weight: 600;" id="radarStdAccountsText">4 / 6 (常规)</span>
           </div>
           <div style="display: flex; justify-content: space-between;">
             <span style="color: var(--text-mid);">官方 1500 API 池:</span>
@@ -1390,6 +1424,36 @@ print(resp.choices[0].message.content)</pre>
       const rAcc = document.getElementById('radarAccountsText');
       if (rAcc) rAcc.textContent = `${readyAccountsCount} / ${rawAccounts.length} 正常`;
 
+      // 划分 PRO 账号 与 标准账号
+      const proAccounts = rawAccounts.filter(a => a.tier === 'pro' || !!(a.web_auth?.is_pro));
+      const stdAccounts = rawAccounts.filter(a => !(a.tier === 'pro' || !!(a.web_auth?.is_pro)));
+
+      // 更新号池分级雷达
+      const rPro = document.getElementById('radarProAccountsText');
+      if (rPro) rPro.textContent = `${proAccounts.length} / ${rawAccounts.length} (优先通道)`;
+      const rStd = document.getElementById('radarStdAccountsText');
+      if (rStd) rStd.textContent = `${stdAccounts.length} / ${rawAccounts.length} (常规负载)`;
+
+      // 更新当前主凭据等级微徽章与特权说明
+      const activeAcc = rawAccounts.find(a => a.email === activeEmail);
+      const isActivePro = activeAcc ? (activeAcc.tier === 'pro' || !!activeAcc.web_auth?.is_pro) : false;
+      const tierBadgeEl = document.getElementById('activeAccountTierBadge');
+      if (tierBadgeEl) {
+        if (isActivePro) {
+          tierBadgeEl.className = 'badge pro';
+          tierBadgeEl.innerHTML = `<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> PRO 会员 2M`;
+        } else {
+          tierBadgeEl.className = 'badge std';
+          tierBadgeEl.textContent = '标准账号';
+        }
+      }
+      const privEl = document.getElementById('activeAccountPrivilegeText');
+      if (privEl) {
+        privEl.innerHTML = isActivePro
+          ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span style="color:#f59e0b; font-weight:500;">享 200万 (2M) 上下文 · 优先调度</span>`
+          : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span>自动续期: 剩余充足</span>`;
+      }
+
       if (data.gateway) {
         const gw = data.gateway;
         const capEl = document.getElementById('gatewayApiCapacityVal');
@@ -1410,6 +1474,12 @@ print(resp.choices[0].message.content)</pre>
 
         const radarApiText = document.getElementById('radarApiCapacityText');
         if (radarApiText) radarApiText.textContent = `${(gw.totalRemaining || 0).toLocaleString()} 次/天`;
+
+        // 更新 Web 反代通道卡片文案
+        const webSub = document.getElementById('gatewayWebSubtext');
+        if (webSub) {
+          webSub.textContent = `含 ${proAccounts.length} 个 PRO 会员号 (200万上下文) · 自动续期守护`;
+        }
 
         cachedGatewayModels = gw.models || [];
         const modelBadge = document.getElementById('navBadgeModelsCount');
@@ -1440,26 +1510,74 @@ print(resp.choices[0].message.content)</pre>
     }
   }
 
+  let currentAccountTierFilter = 'all'; // 'all' | 'pro' | 'standard'
+
+  function setAccountTierFilter(filter, btn) {
+    currentAccountTierFilter = filter;
+    document.querySelectorAll('#accountTierFilterGroup .btn').forEach(b => b.classList.remove('primary'));
+    if (btn) btn.classList.add('primary');
+    renderAccountsTable(cachedAccounts, currentActiveEmail);
+  }
+
+  async function toggleAccountTier(email, targetTier) {
+    try {
+      const res = await fetch(api('/api/account/set-tier'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, tier: targetTier })
+      });
+      const d = await res.json();
+      if (d.success) {
+        await loadData();
+      }
+    } catch (e) {
+      alert('切换账号等级失败: ' + e.message);
+    }
+  }
+
   function renderAccountsTable(accounts, activeEmail) {
     const badge = document.getElementById('navBadgeAccountsCount');
     if (badge) badge.textContent = accounts.length;
 
+    const proAccounts = accounts.filter(a => a.tier === 'pro' || !!(a.web_auth?.is_pro));
+    const stdAccounts = accounts.filter(a => !(a.tier === 'pro' || !!(a.web_auth?.is_pro)));
+
+    const btnAll = document.getElementById('btnFilterTierAll');
+    if (btnAll) btnAll.textContent = `全部 (${accounts.length})`;
+    const btnPro = document.getElementById('btnFilterTierPro');
+    if (btnPro) btnPro.textContent = `★ PRO 会员 (${proAccounts.length})`;
+    const btnStd = document.getElementById('btnFilterTierStd');
+    if (btnStd) btnStd.textContent = `标准账号 (${stdAccounts.length})`;
+
     const tbody = document.getElementById('poolTableBody');
     if (!tbody) return;
 
-    if (accounts.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">暂无纳管账号。点击右上角【+ 接入新账号】</td></tr>';
+    let displayList = accounts;
+    if (currentAccountTierFilter === 'pro') displayList = proAccounts;
+    else if (currentAccountTierFilter === 'standard') displayList = stdAccounts;
+
+    if (displayList.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">该分类下暂无账号</td></tr>';
       return;
     }
 
-    tbody.innerHTML = accounts.map(a => {
+    tbody.innerHTML = displayList.map(a => {
       const isCur = a.email === activeEmail;
+      const isPro = a.tier === 'pro' || !!(a.web_auth?.is_pro);
       const q = a.quota;
+
       let statusBadge = isCur 
         ? '<span class="badge blue">挂载中</span>' 
         : (q?.status === 'ERROR' && q?.validationUrl 
             ? `<a href="${q.validationUrl}" target="_blank" class="badge amber" style="text-decoration:none;">需验证 ↗</a>`
             : (q?.status === 'ERROR' ? '<span class="badge red">异常</span>' : '<span class="badge green">就绪</span>'));
+
+      let tierBadgeHtml = isPro
+        ? `<span class="badge pro" title="享 200万上下文 · 优先调度权">
+             <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+             PRO 2M
+           </span>`
+        : `<span class="badge std" title="标准 1500 API 算力通道">标准版</span>`;
 
       let quota5h = q?.gemini_5h;
       let pct5h = quota5h?.remainingFraction !== undefined ? Math.round(quota5h.remainingFraction * 100) : null;
@@ -1480,21 +1598,26 @@ print(resp.choices[0].message.content)</pre>
       const remaining = Math.max(0, limit - used);
       const hasKey = !!a.ai_studio?.api_key;
       let apiKeyHtml = `
-        <div style="display:flex; align-items:center; gap:6px;">
+        <div style="display:flex; align-items:center; gap:5px;">
           <span class="badge ${remaining > 0 ? 'green' : 'amber'}">${remaining.toLocaleString()} 次/天</span>
-          ${hasKey ? '<span style="font-size:10px; color:var(--accent-blue-glow);">专属Key</span>' : `<button class="btn mini" onclick="openBindAiKeyModal('${a.email}')">+ 绑定 Key</button>`}
+          ${hasKey ? '<span style="font-size:10px; color:var(--accent-blue-glow);">Key</span>' : `<button class="btn mini" onclick="openBindAiKeyModal('${a.email}')">+Key</button>`}
         </div>
       `;
 
-      const isPro = !!(a.web_auth?.is_pro);
       const webReady = a.web_auth?.status === 'active' || !!a.web_auth?.cookie;
       let webAuthHtml = webReady 
-        ? `<span class="badge ${isPro ? 'amber' : 'green'}">${isPro ? 'Pro 会员 (无限)' : '网页反代就绪'}</span>`
+        ? `<span class="badge ${isPro ? 'pro' : 'green'}">${isPro ? 'Pro 会员' : '就绪'}</span>`
         : `<button class="btn mini" onclick="triggerAutoAuth('${a.email}')">同步反代</button>`;
 
+      let tierToggleBtn = isPro
+        ? `<button class="btn mini" onclick="toggleAccountTier('${a.email}', 'standard')" title="降为标准账号" style="color:var(--text-muted);">降级</button>`
+        : `<button class="btn mini" onclick="toggleAccountTier('${a.email}', 'pro')" style="color:#f59e0b; border-color:rgba(245,158,11,0.25);" title="设为 PRO 会员">升级</button>`;
+
       let opHtml = isCur
-        ? `<button class="btn mini danger-subtle" onclick="deleteAccount('${a.email}')">移除</button>`
-        : `<button class="btn mini" onclick="switchAccount('${a.email}')">挂载</button>
+        ? `${tierToggleBtn}
+           <button class="btn mini danger-subtle" onclick="deleteAccount('${a.email}')">移除</button>`
+        : `${tierToggleBtn}
+           <button class="btn mini" onclick="switchAccount('${a.email}')">挂载</button>
            <button class="btn mini danger-subtle" onclick="deleteAccount('${a.email}')">移除</button>`;
 
       const avatar = a.picture
@@ -1502,7 +1625,7 @@ print(resp.choices[0].message.content)</pre>
         : `<div style="width:24px; height:24px; border-radius:50%; background:var(--surface-elevated); border:1px solid var(--border-hairline); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:var(--text-mid); flex-shrink:0;">${(a.email || 'U')[0].toUpperCase()}</div>`;
 
       return `
-        <tr>
+        <tr class="${isPro ? 'row-pro' : 'row-std'}">
           <td>
             <div style="display:flex; align-items:center; gap:8px;">
               ${avatar}
@@ -1512,12 +1635,13 @@ print(resp.choices[0].message.content)</pre>
               </div>
             </div>
           </td>
+          <td>${tierBadgeHtml}</td>
           <td>${statusBadge}</td>
           <td>${quota5hHtml}</td>
           <td>${quotaWkHtml}</td>
           <td>${apiKeyHtml}</td>
           <td>${webAuthHtml}</td>
-          <td style="text-align: right;"><div style="display:inline-flex; gap:4px; justify-content:flex-end;">${opHtml}</div></td>
+          <td style="text-align: right;"><div style="display:inline-flex; gap:3px; justify-content:flex-end;">${opHtml}</div></td>
         </tr>
       `;
     }).join('');
