@@ -113,6 +113,16 @@ def log(msg: str):
         sys.stderr.flush()
 
 
+def resolve_cookie_and_sapisid(custom_cookie: Optional[str] = None) -> tuple:
+    """Resolve cookie and sapisid from custom_cookie or fallback to cookie_file."""
+    if custom_cookie and custom_cookie.strip():
+        c_str = custom_cookie.strip()
+        pairs = dict(p.split("=", 1) for p in c_str.split("; ") if "=" in p)
+        sapisid = pairs.get("SAPISID", "")
+        return c_str, sapisid if sapisid else None
+    return load_cookie()
+
+
 def load_cookie() -> tuple:
     """Load cookie from file. Returns (cookie_str, sapisid)."""
     cookie_file = CONFIG.get("cookie_file")
@@ -220,7 +230,7 @@ def upload_images(images: list) -> list:
 
 # ─── Gemini Protocol ─────────────────────────────────────────────────────────
 
-def gemini_stream_generate(prompt: str, model_id: int, think_mode: int, file_refs: list = None) -> str:
+def gemini_stream_generate(prompt: str, model_id: int, think_mode: int, file_refs: list = None, custom_cookie: Optional[str] = None) -> str:
     """Send prompt to Gemini StreamGenerate with retry."""
     inner = [None] * 80
     if file_refs:
@@ -267,7 +277,7 @@ def gemini_stream_generate(prompt: str, model_id: int, think_mode: int, file_ref
     if prefix:
         headers["X-Goog-AuthUser"] = str(CONFIG["auth_user"])
 
-    cookie_str, sapisid = load_cookie()
+    cookie_str, sapisid = resolve_cookie_and_sapisid(custom_cookie)
     if cookie_str:
         headers["Cookie"] = cookie_str
     if sapisid:
@@ -311,7 +321,7 @@ def gemini_stream_generate(prompt: str, model_id: int, think_mode: int, file_ref
     raise last_err
 
 
-def gemini_stream_generate_iter(prompt: str, model_id: int, think_mode: int, file_refs: list = None):
+def gemini_stream_generate_iter(prompt: str, model_id: int, think_mode: int, file_refs: list = None, custom_cookie: Optional[str] = None):
     """Send prompt and yield incremental text deltas using httpx streaming."""
     inner = [None] * 80
     if file_refs:
@@ -357,7 +367,7 @@ def gemini_stream_generate_iter(prompt: str, model_id: int, think_mode: int, fil
     }
     if prefix:
         headers["X-Goog-AuthUser"] = str(CONFIG["auth_user"])
-    cookie_str, sapisid = load_cookie()
+    cookie_str, sapisid = resolve_cookie_and_sapisid(custom_cookie)
     if cookie_str:
         headers["Cookie"] = cookie_str
     if sapisid:
@@ -367,7 +377,7 @@ def gemini_stream_generate_iter(prompt: str, model_id: int, think_mode: int, fil
 
     if not HAS_HTTPX:
         # Fallback: non-streaming with urllib
-        raw = gemini_stream_generate(prompt, model_id, think_mode, file_refs)
+        raw = gemini_stream_generate(prompt, model_id, think_mode, file_refs, custom_cookie=custom_cookie)
         text = extract_response_text(raw)
         if text:
             yield text
@@ -413,7 +423,7 @@ def gemini_stream_generate_iter(prompt: str, model_id: int, think_mode: int, fil
             if HAS_HTTPX and hasattr(e, 'response') and getattr(e.response, 'status_code', 0) == 405:
                 if update_bl_if_needed():
                     log("BL updated, falling back to non-streaming for this request")
-                    raw = gemini_stream_generate(prompt, model_id, think_mode, file_refs)
+                    raw = gemini_stream_generate(prompt, model_id, think_mode, file_refs, custom_cookie=custom_cookie)
                     text = extract_response_text(raw)
                     if text:
                         yield text
@@ -762,8 +772,8 @@ class GeminiHandler(BaseHTTPRequestHandler):
             return None, None, None, f"Unknown model: {model_name}"
         return model_name, cfg["mode"], (think_override if think_override is not None else cfg["think"]), None
 
-    def _call_gemini(self, prompt, model_id, think_mode, tools, file_refs=None):
-        raw = gemini_stream_generate(prompt, model_id, think_mode, file_refs)
+    def _call_gemini(self, prompt, model_id, think_mode, tools, file_refs=None, custom_cookie=None):
+        raw = gemini_stream_generate(prompt, model_id, think_mode, file_refs, custom_cookie=custom_cookie)
         text = extract_response_text(raw)
         tool_calls = None
         if tools and text:
@@ -771,6 +781,7 @@ class GeminiHandler(BaseHTTPRequestHandler):
         return text or "", tool_calls
 
     def handle_chat(self, body: bytes):
+        custom_cookie = self.headers.get("X-Gemini-Cookie") or self.headers.get("Cookie")
         req = json.loads(body)
         model_name, model_id, think_mode, err = self._resolve_model(
             req.get("model", CONFIG["default_model"]))
@@ -803,7 +814,7 @@ class GeminiHandler(BaseHTTPRequestHandler):
                 first_chunk = {"id": cid, "object": "chat.completion.chunk", "created": int(time.time()),
                                "model": model_name, "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]}
                 self.wfile.write(f"data: {json.dumps(first_chunk)}\n\n".encode())
-                for delta_text in gemini_stream_generate_iter(prompt, model_id, think_mode, file_refs):
+                for delta_text in gemini_stream_generate_iter(prompt, model_id, think_mode, file_refs, custom_cookie=custom_cookie):
                     chunk = {"id": cid, "object": "chat.completion.chunk", "created": int(time.time()),
                              "model": model_name, "choices": [{"index": 0, "delta": {"content": delta_text}, "finish_reason": None}]}
                     self.wfile.write(f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode())
@@ -822,7 +833,7 @@ class GeminiHandler(BaseHTTPRequestHandler):
 
         # Non-streaming (or tool calling which needs full response)
         try:
-            text, tool_calls = self._call_gemini(prompt, model_id, think_mode, tools, file_refs)
+            text, tool_calls = self._call_gemini(prompt, model_id, think_mode, tools, file_refs, custom_cookie=custom_cookie)
         except Exception as e:
             self.send_json({"error": {"message": f"upstream error: {e}"}}, 502)
             return
@@ -910,8 +921,9 @@ class GeminiHandler(BaseHTTPRequestHandler):
             return
 
         try:
+            custom_cookie = self.headers.get("X-Gemini-Cookie") or self.headers.get("Cookie")
             file_refs = upload_images(images)
-            text, tool_calls = self._call_gemini(prompt, model_id, think_mode, tools, file_refs)
+            text, tool_calls = self._call_gemini(prompt, model_id, think_mode, tools, file_refs, custom_cookie=custom_cookie)
         except Exception as e:
             self.send_json({"error": {"message": f"upstream error: {e}"}}, 502)
             return

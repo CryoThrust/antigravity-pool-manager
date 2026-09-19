@@ -621,9 +621,9 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
           同步配额
         </button>
-        <button class="fluent-btn primary" id="btnAddAccount" onclick="addNewAccount()">
+        <button class="fluent-btn primary" id="btnAddAccount" onclick="triggerAddAccountAuto()">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          添加小号 (OAuth)
+          ✨ 全自动添加账号
         </button>
       </div>
     </header>
@@ -1163,9 +1163,14 @@
           `;
         } else {
           aiStudioCol = `
-            <button class="fluent-btn mini primary" onclick="openBindAiKeyModal('${acc.email}')" style="font-size:11px; padding:3px 8px;">
-              + 绑定 1500次 Key
-            </button>
+            <div style="display:flex; align-items:center; gap:4px;">
+              <button class="fluent-btn mini primary" onclick="triggerAutoAuth('${acc.email}')" style="font-size:11px; padding:3px 8px;" title="全自动从 AI Studio 捕获并绑定 1500 次 API Key">
+                ⚡ 自动绑定
+              </button>
+              <button class="fluent-btn mini" onclick="openBindAiKeyModal('${acc.email}')" style="font-size:10px; padding:3px 5px; color:var(--ms-text-muted);" title="手动输入 API Key">
+                手动
+              </button>
+            </div>
           `;
         }
 
@@ -1178,14 +1183,22 @@
               <span class="status-badge" style="background:${isPro ? 'rgba(245, 158, 11, 0.15); color:#f59e0b;' : 'rgba(255,255,255,0.06); color:var(--ms-text-muted);'} font-size:10px;">
                 ${isPro ? '🌟 Pro 会员' : '● 普通会话'}
               </span>
-              <button class="fluent-btn mini" onclick="openBindWebAuthModal('${acc.email}', ${isPro})">改绑</button>
+              <div style="display:flex; gap:4px;">
+                <button class="fluent-btn mini" onclick="triggerAutoAuth('${acc.email}')" title="自动重录/刷新 Web Cookie">刷新</button>
+                <button class="fluent-btn mini" onclick="openBindWebAuthModal('${acc.email}', ${isPro})">改绑</button>
+              </div>
             </div>
           `;
         } else {
           webAuthCol = `
-            <button class="fluent-btn mini" onclick="openBindWebAuthModal('${acc.email}')" style="font-size:11px; padding:3px 8px;">
-              + 绑定 Web
-            </button>
+            <div style="display:flex; align-items:center; gap:4px;">
+              <button class="fluent-btn mini primary" onclick="triggerAutoAuth('${acc.email}')" style="font-size:11px; padding:3px 8px;" title="全自动捕获 Gemini 网页会话 Cookie">
+                ⚡ 自动同步
+              </button>
+              <button class="fluent-btn mini" onclick="openBindWebAuthModal('${acc.email}')" style="font-size:10px; padding:3px 5px; color:var(--ms-text-muted);" title="手动粘贴 Cookie">
+                手动
+              </button>
+            </div>
           `;
         }
 
@@ -1233,6 +1246,7 @@
         html += '  <td>' + webAuthCol + '</td>';
 
         html += '  <td style="text-align: right;">';
+        html += '    <button class="fluent-btn mini" onclick="triggerAutoAuth(\'' + acc.email + '\')" style="margin-right: 4px; background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.35); color: #60a5fa;" title="一键全自动同步反代与 1500 API">⚡ 全自动同步</button>';
         if (!isActive) {
           html += '    <button class="fluent-btn mini" onclick="switchAccount(\'' + acc.email + '\', this)" style="margin-right: 4px;">设为主凭据</button>';
         }
@@ -1338,6 +1352,22 @@
       await fetch(api('/api/refresh-quotas'), { method: 'POST' });
       await loadData();
       showNotice('所有小号配额已同步完成', true);
+    }
+
+    function triggerAutoAuth(email) {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.startAutoAuth) {
+        window.webkit.messageHandlers.startAutoAuth.postMessage({ email, mode: 'sync' });
+      } else {
+        openBindWebAuthModal(email);
+      }
+    }
+
+    function triggerAddAccountAuto() {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.startAutoAuth) {
+        window.webkit.messageHandlers.startAutoAuth.postMessage({ mode: 'new' });
+      } else {
+        addNewAccount();
+      }
     }
 
     async function addNewAccount() {

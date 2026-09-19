@@ -500,9 +500,13 @@ const oauthCallbackServer = http.createServer(async (req, res) => {
           <p style="margin: 12px 0;">已成功录入: <strong>${name}</strong> (${email})</p>
           <p style="color: #6b7280; font-size: 13px;">正在返回控制台...</p>
           <script>
-            setTimeout(() => {
-              window.location.href = "http://localhost:3999/?added=1";
-            }, 1000);
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.onOAuthSuccess) {
+              window.webkit.messageHandlers.onOAuthSuccess.postMessage({ email: "${email}", name: "${name}" });
+            } else {
+              setTimeout(() => {
+                window.location.href = "http://localhost:3999/?added=1";
+              }, 1000);
+            }
           </script>
         </div>
       `);
@@ -796,13 +800,35 @@ setInterval(ensureWeb2ApiWorker, 30000);
 
 async function forwardToWebProxy(req, res, body, model) {
   const forwardBody = { ...body, model };
+  const pool = loadPool();
+
+  // 筛选可用且已激活 Web Cookie 凭据的小号（优先使用 Pro 账号，按最近使用时间排序轮询）
+  const activeWebAccounts = Object.entries(pool.accounts || {})
+    .filter(([_, acc]) => acc.web_auth?.cookie && acc.web_auth?.status === 'active')
+    .sort((a, b) => (new Date(a[1].web_auth.last_used || 0).getTime()) - (new Date(b[1].web_auth.last_used || 0).getTime()));
+
+  let targetCookie = '';
+  let chosenEmail = null;
+  if (activeWebAccounts.length > 0) {
+    const [email, acc] = activeWebAccounts[0];
+    targetCookie = acc.web_auth.cookie;
+    chosenEmail = email;
+    acc.web_auth.last_used = new Date().toISOString();
+    savePool(pool);
+  }
+
   try {
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer any'
+    };
+    if (targetCookie) {
+      headers['X-Gemini-Cookie'] = targetCookie;
+    }
+
     const upstream = await fetch('http://localhost:8085/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer any'
-      },
+      headers,
       body: JSON.stringify(forwardBody)
     });
 
@@ -1131,8 +1157,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === '/api/auth-url' && req.method === 'POST') {
-    // 51121 端口已常驻运行
-
+    const body = await readBody().catch(() => ({}));
     const authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" + new URLSearchParams({
       client_id: OAUTH_CLIENT_ID,
       redirect_uri: REDIRECT_URI,
@@ -1142,15 +1167,17 @@ const server = http.createServer(async (req, res) => {
       prompt: "consent"
     }).toString();
 
-    try {
-      if (IS_WIN) {
-        exec(`start "" "${authUrl}"`);
-      } else if (process.platform === 'darwin') {
-        exec(`open "${authUrl}"`);
-      } else {
-        exec(`xdg-open "${authUrl}"`);
-      }
-    } catch (e) {}
+    if (!body?.noOpen) {
+      try {
+        if (IS_WIN) {
+          exec(`start "" "${authUrl}"`);
+        } else if (process.platform === 'darwin') {
+          exec(`open "${authUrl}"`);
+        } else {
+          exec(`xdg-open "${authUrl}"`);
+        }
+      } catch (e) {}
+    }
 
     return sendJSON({ success: true, authUrl });
   }
@@ -1247,19 +1274,25 @@ const server = http.createServer(async (req, res) => {
     }
 
     const pool = loadPool();
-    if (pool.accounts[email]) {
-      const today = new Date().toISOString().slice(0, 10);
-      pool.accounts[email].ai_studio = {
-        api_key: apiKey.trim(),
-        daily_limit: 1500,
-        used_today: 0,
-        last_reset: today,
-        status: 'active'
+    if (!pool.accounts[email]) {
+      pool.accounts[email] = {
+        email,
+        name: email.split('@')[0],
+        token_type: 'Bearer',
+        last_updated: new Date().toISOString()
       };
-      savePool(pool);
-      return sendJSON({ success: true, message: 'Google AI Studio API Key 验证通过并已激活！' });
     }
-    return sendJSON({ error: '未找到指定账号' }, 404);
+    const today = new Date().toISOString().slice(0, 10);
+    pool.accounts[email].ai_studio = {
+      api_key: apiKey.trim(),
+      daily_limit: 1500,
+      used_today: 0,
+      last_reset: today,
+      status: 'active',
+      updated_at: new Date().toISOString()
+    };
+    savePool(pool);
+    return sendJSON({ success: true, message: 'Google AI Studio API Key 验证通过并已激活！' });
   }
 
   // ─── 绑定与测试 Web Cookie 凭据 ─────────────────────────────
@@ -1269,23 +1302,28 @@ const server = http.createServer(async (req, res) => {
     if (!email || !cookie) return sendJSON({ error: '缺少账号邮箱或 Cookie 内容' }, 400);
 
     const pool = loadPool();
-    if (pool.accounts[email]) {
-      pool.accounts[email].web_auth = {
-        cookie: cookie.trim(),
-        is_pro: !!isPro,
-        status: 'active',
-        updated_at: new Date().toISOString()
+    if (!pool.accounts[email]) {
+      pool.accounts[email] = {
+        email,
+        name: email.split('@')[0],
+        token_type: 'Bearer',
+        last_updated: new Date().toISOString()
       };
-      savePool(pool);
-
-      try {
-        const cookieFilePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'web2api', 'cookie.txt');
-        fs.writeFileSync(cookieFilePath, cookie.trim(), 'utf8');
-      } catch (e) {}
-
-      return sendJSON({ success: true, message: 'Web 会话凭据已同步！' });
     }
-    return sendJSON({ error: '未找到指定账号' }, 404);
+    pool.accounts[email].web_auth = {
+      cookie: cookie.trim(),
+      is_pro: !!isPro,
+      status: 'active',
+      updated_at: new Date().toISOString()
+    };
+    savePool(pool);
+
+    try {
+      const cookieFilePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'web2api', 'cookie.txt');
+      fs.writeFileSync(cookieFilePath, cookie.trim(), 'utf8');
+    } catch (e) {}
+
+    return sendJSON({ success: true, message: 'Web 会话凭据已同步！' });
   }
 
   // ─── 单测指定账号的 AI Studio Key ─────────────────────────────
