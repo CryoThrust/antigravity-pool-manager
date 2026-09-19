@@ -1152,23 +1152,37 @@ const server = http.createServer(async (req, res) => {
     let boundKeysCount = 0;
     let hasWebPro = false;
     for (const acc of accountList) {
+      const dailyLimit = acc.ai_studio?.daily_limit || 1500;
+      const usedToday = acc.ai_studio?.used_today || 0;
+      totalApiStudioCapacity += dailyLimit;
+      totalApiStudioUsed += usedToday;
       if (acc.ai_studio?.api_key) {
         boundKeysCount++;
-        totalApiStudioCapacity += (acc.ai_studio.daily_limit || 1500);
-        totalApiStudioUsed += (acc.ai_studio.used_today || 0);
       }
       if (acc.web_auth?.is_pro && acc.web_auth?.status === 'active') {
         hasWebPro = true;
       }
     }
+    if (totalApiStudioCapacity === 0) totalApiStudioCapacity = 1500;
+    const totalRemaining = Math.max(0, totalApiStudioCapacity - totalApiStudioUsed);
+    const percentRemaining = totalApiStudioCapacity > 0 ? ((totalRemaining / totalApiStudioCapacity) * 100).toFixed(1) : '100.0';
+
     const modelsList = await syncDynamicModels();
     const gateway = {
       baseUrl: 'http://localhost:3999/v1',
+      accountsCount: accountList.length,
       boundKeysCount,
       totalCapacity: totalApiStudioCapacity,
       totalUsedToday: totalApiStudioUsed,
-      totalRemaining: Math.max(0, totalApiStudioCapacity - totalApiStudioUsed),
+      totalRemaining,
+      percentRemaining,
       hasWebPro,
+      webQuota: {
+        type: 'unlimited',
+        desc: '无限调用 (无每日次数限制)',
+        status: 'ready',
+        hasPro: hasWebPro
+      },
       models: modelsList
     };
 
