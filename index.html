@@ -618,9 +618,17 @@
 
       <div class="fluent-header-actions">
         <div class="fluent-pivot-tabs" style="margin-right: 8px;">
-          <button class="pivot-tab active" id="tabNavOverview" onclick="switchMainView('overview')">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: middle;"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-            控制看板
+          <button class="pivot-tab active" id="tabNavGateway" onclick="switchMainView('gateway')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: middle;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            统一网关
+          </button>
+          <button class="pivot-tab" id="tabNavAccounts" onclick="switchMainView('accounts')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: middle;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+            账号集群
+          </button>
+          <button class="pivot-tab" id="tabNavAudit" onclick="switchMainView('audit')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: middle;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            消耗审计
           </button>
           <button class="pivot-tab" id="tabNavDocs" onclick="switchMainView('docs')">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: middle;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
@@ -648,327 +656,374 @@
       </div>
 
       <!-- ======================================================== -->
-      <!-- VIEW 1: 🖥 控制看板 (Overview) -->
+      <!-- VIEW 1: 统一网关 (Gateway - 默认主视图) -->
       <!-- ======================================================== -->
-      <div id="viewOverview" style="display: flex; flex-direction: column; gap: 14px;">
-      <!-- TOP DEDICATED AGGREGATE QUOTA DASHBOARD (微软简约风仪表盘) -->
-      <!-- ======================================================== -->
-      <section class="fluent-card">
-        <div class="card-title-bar">
-          <div class="card-title-text">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-            号池算力汇总仪表盘
-          </div>
-          <div class="card-caption" id="dashSyncTime">最新探测: 刚刚</div>
-        </div>
-
-        <div class="kpi-grid">
-          <!-- 5h 总额度 -->
-          <div class="kpi-tile">
-            <div class="kpi-label">
-              <span>5H 可用额度均值</span>
-              <span class="status-badge status-active" id="dash5hTag">充足</span>
+      <div id="viewGateway" style="display: flex; flex-direction: column; gap: 16px;">
+        <!-- 全源统一 API 网关看板 -->
+        <section class="fluent-card">
+          <div class="card-title-bar">
+            <div class="card-title-text">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              统一 API 网关 (/v1)
             </div>
-            <div class="kpi-value">
-              <span id="dash5hVal">--</span>
-              <span class="kpi-unit">/ 100%</span>
-            </div>
-            <div class="kpi-track">
-              <div class="kpi-fill" id="dash5hBar" style="width: 0%;"></div>
-            </div>
-            <div class="kpi-desc" id="dash5hSub">载入中...</div>
-          </div>
-
-          <!-- 周度总额度 -->
-          <div class="kpi-tile">
-            <div class="kpi-label">
-              <span>周度可用总容量</span>
-              <span class="status-badge" style="background: var(--ms-green-bg); color: var(--ms-green);" id="dashWeeklyTag">健康</span>
-            </div>
-            <div class="kpi-value">
-              <span id="dashWeeklyVal">--</span>
-              <span class="kpi-unit" id="dashWeeklyMax">/ --%</span>
-            </div>
-            <div class="kpi-track">
-              <div class="kpi-fill" id="dashWeeklyBar" style="width: 0%;"></div>
-            </div>
-            <div class="kpi-desc" id="dashWeeklySub">载入中...</div>
-          </div>
-
-          <!-- 账号就绪度 -->
-          <div class="kpi-tile">
-            <div class="kpi-label">
-              <span>号池可用账号数</span>
-              <span class="status-badge status-active" id="dashAccountTag">就绪</span>
-            </div>
-            <div class="kpi-value">
-              <span id="dashAccountVal">-- / --</span>
-              <span class="kpi-unit">个正常</span>
-            </div>
-            <div class="kpi-track">
-              <div class="kpi-fill" id="dashAccountBar" style="width: 100%;"></div>
-            </div>
-            <div class="kpi-desc" id="dashAccountSub">载入中...</div>
-          </div>
-
-          <!-- 对话累计 Tokens -->
-          <div class="kpi-tile">
-            <div class="kpi-label">
-              <span>全局累计对话消耗</span>
-              <span class="status-badge" style="background: rgba(255,255,255,0.06); color: var(--ms-text-muted);">实时</span>
-            </div>
-            <div class="kpi-value">
-              <span id="dashTotalTokens" style="color: var(--ms-blue-luminous);">--</span>
-              <span class="kpi-unit">Tokens</span>
-            </div>
-            <div class="kpi-track">
-              <div class="kpi-fill" style="width: 100%; background: var(--ms-blue);"></div>
-            </div>
-            <div class="kpi-desc" id="dashTokenSub">载入中...</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 全源统一 API 网关看板 -->
-      <section class="fluent-card">
-        <div class="card-title-bar">
-          <div class="card-title-text">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            统一 API 网关 (/v1)
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <span class="fluent-badge">
-              <span class="dot" style="background: var(--ms-green);"></span> 运行中 (端口 3999)
-            </span>
-            <button class="fluent-btn mini" onclick="openModelsModal()">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 3px;"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-              模型与别名清单
-            </button>
-          </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1.15fr 1.4fr 1.45fr; gap: 12px; margin-top: 10px;">
-          <!-- 1. 接口 Base URL -->
-          <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card); display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-              <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                服务 Base URL (填入 Cursor / Cline / Roo Code)
-              </div>
-              <div style="display: flex; align-items: center; justify-content: space-between;">
-                <code style="font-family: var(--font-mono); font-size: 13px; color: var(--ms-blue-luminous); font-weight: 600;" id="gatewayBaseUrlText">http://localhost:3999/v1</code>
-                <button class="fluent-btn mini" onclick="copyText('http://localhost:3999/v1', this)">复制</button>
-              </div>
-            </div>
-            <div style="font-size: 11px; color: var(--ms-text-muted); margin-top: 8px;" id="gatewayDynamicModelsVal">● 已动态同步 42 个官方模型 · 端口 3999</div>
-          </div>
-
-          <!-- 2. 官方 API 算力池 (1500次/号/天) -->
-          <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span style="font-size: 11px; color: var(--ms-text-muted); display: flex; align-items: center; gap: 5px;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                官方 API 算力池 (AI Studio)
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span class="fluent-badge">
+                <span class="dot" style="background: var(--ms-green);"></span> 运行中 (端口 3999)
               </span>
-              <span id="gatewayApiPercentBadge" class="status-badge status-active" style="font-size: 10px; font-weight: 600;">100% 充足</span>
-            </div>
-            <div style="font-size: 15px; font-weight: 700; color: var(--ms-text-high); font-family: var(--font-mono); letter-spacing: -0.01em;" id="gatewayApiCapacityVal">
-              剩余 9,000 / 9,000 次/天
-            </div>
-            <div style="height: 4px; background: var(--ms-surface-subtle); border-radius: 2px; overflow: hidden; margin: 8px 0 6px 0;">
-              <div id="gatewayApiProgressBar" style="height: 100%; width: 100%; background: var(--ms-green); border-radius: 2px; transition: width 0.3s ease;"></div>
-            </div>
-            <div style="font-size: 11px; color: var(--ms-text-muted);" id="gatewayApiSubtext">6 个账号 × 1500次/天 · 官方每日自动刷新</div>
-          </div>
-
-          <!-- 3. Web 逆向反代通道 (不限次) -->
-          <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span style="font-size: 11px; color: var(--ms-text-muted); display: flex; align-items: center; gap: 5px;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                Web 逆向反代通道 (Gemini Web)
-              </span>
-              <span id="gatewayWebProBadge" class="status-badge status-active" style="font-size: 10px;">● 不限次畅连</span>
-            </div>
-            <div style="font-size: 15px; font-weight: 700; color: var(--ms-text-high); font-family: var(--font-mono); letter-spacing: -0.01em;" id="gatewayWebQuotaVal">
-              无限调用 <span style="font-size: 12px; font-weight: 500; color: var(--ms-blue-luminous);">(无次数上限)</span>
-            </div>
-            <div style="height: 4px; background: var(--ms-surface-subtle); border-radius: 2px; overflow: hidden; margin: 8px 0 6px 0;">
-              <div style="height: 100%; width: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius: 2px;"></div>
-            </div>
-            <div style="font-size: 11px; color: var(--ms-text-muted);" id="gatewayWebSubtext">原生 Web 网页逆向 · 官方 0 频控兜底</div>
-          </div>
-        </div>
-
-        <!-- 网关连通性快速单测 (Live Connectivity Test) -->
-        <div style="margin-top: 12px; background: var(--ms-surface-base); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <div style="font-size:12px; font-weight:600; color:var(--ms-text-high); display:flex; align-items:center; gap:6px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              <span>网关连通性快速单测 (Live Connectivity Test)</span>
-              <span class="status-badge status-active" style="font-size:10px;">● 秒级直连验证</span>
-            </div>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <select id="quickTestModel" class="fluent-input" style="font-size:12px; padding:3px 8px; height:28px; background:var(--ms-surface-elevated); color:var(--ms-text-high); border:1px solid var(--ms-border-card); min-width: 230px;">
-                <option value="gemini-3.8-flash" selected>gemini-3.8-flash (官网最新旗舰)</option>
-                <option value="gemini-3.8-live-extended-thinking">gemini-3.8-live-extended-thinking (深度推理)</option>
-                <option value="gemini-3.7-flash">gemini-3.7-flash (官网全能)</option>
-                <option value="gemini-3.5-flash-thinking">gemini-3.5-flash-thinking (思考模型)</option>
-                <option value="gemini-3.1-pro">gemini-3.1-pro (Pro 会员)</option>
-                <option value="gemini-2.0-flash">gemini-2.0-flash (官方 API)</option>
-                <option value="gemini-1.5-pro">gemini-1.5-pro (官方 API · 200万上下文)</option>
-              </select>
-
-              <select id="quickTestThinkLevel" class="fluent-input" style="font-size:12px; padding:3px 8px; height:28px; background:var(--ms-surface-elevated); color:var(--ms-text-high); border:1px solid var(--ms-border-card); width: 140px;">
-                <option value="" selected>思考: 默认平衡</option>
-                <option value="@think=0">深度推理 (think=0)</option>
-                <option value="@think=1">深度思考 (think=1)</option>
-                <option value="@think=2">快速思考 (think=2)</option>
-                <option value="@think=4">极速低延迟 (think=4)</option>
-              </select>
-
-              <button class="fluent-btn mini primary" id="btnRunQuickTest" onclick="runGatewayQuickTest()" style="font-weight:600; height:28px; padding:0 12px; display:inline-flex; align-items:center; gap:5px;">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                执行单测
+              <button class="fluent-btn mini" onclick="openModelsModal()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 3px;"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                模型与别名清单
               </button>
             </div>
           </div>
-          <div id="quickTestOutput" style="display:none; margin-top:10px; background: rgba(0,0,0,0.35); border: 1px solid var(--ms-border-card); border-radius: 4px; padding: 10px 14px; font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); white-space: pre-wrap; line-height: 1.6; max-height: 160px; overflow-y: auto;"></div>
-        </div>
-      </section>
 
-      <!-- 状态与自动化条 -->
-      <section class="fluent-strip">
-        <div class="strip-cell">
-          <div class="strip-avatar-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-          </div>
-          <div class="strip-body">
-            <div class="strip-heading">
-              <span id="activeEmailText">读取钥匙串凭据...</span>
-              <span class="status-badge status-active">当前挂载</span>
+          <div style="display: grid; grid-template-columns: 1.15fr 1.4fr 1.45fr; gap: 12px; margin-top: 10px;">
+            <!-- 1. 接口 Base URL -->
+            <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card); display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                  服务 Base URL (填入 Cursor / Cline / Roo Code)
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <code style="font-family: var(--font-mono); font-size: 13px; color: var(--ms-blue-luminous); font-weight: 600;" id="gatewayBaseUrlText">http://localhost:3999/v1</code>
+                  <button class="fluent-btn mini" onclick="copyText('http://localhost:3999/v1', this)">复制</button>
+                </div>
+              </div>
+              <div style="font-size: 11px; color: var(--ms-text-muted); margin-top: 8px;" id="gatewayDynamicModelsVal">● 已动态同步 42 个官方模型 · 端口 3999</div>
             </div>
-            <div class="strip-subtext" id="activeNameText">macOS Keychain · gemini:antigravity</div>
-          </div>
-        </div>
 
-        <div class="strip-cell">
-          <div class="strip-avatar-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          </div>
-          <div class="strip-body">
-            <div class="strip-heading">
-              <span>无感自动续期守护</span>
-              <span class="status-badge status-active">已保护</span>
+            <!-- 2. 官方 API 算力池 (1500次/号/天) -->
+            <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; color: var(--ms-text-muted); display: flex; align-items: center; gap: 5px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                  官方 API 算力池 (AI Studio)
+                </span>
+                <span id="gatewayApiPercentBadge" class="status-badge status-active" style="font-size: 10px; font-weight: 600;">100% 充足</span>
+              </div>
+              <div style="font-size: 15px; font-weight: 700; color: var(--ms-text-high); font-family: var(--font-mono); letter-spacing: -0.01em;" id="gatewayApiCapacityVal">
+                剩余 9,000 / 9,000 次/天
+              </div>
+              <div style="height: 4px; background: var(--ms-surface-subtle); border-radius: 2px; overflow: hidden; margin: 8px 0 6px 0;">
+                <div id="gatewayApiProgressBar" style="height: 100%; width: 100%; background: var(--ms-green); border-radius: 2px; transition: width 0.3s ease;"></div>
+              </div>
+              <div style="font-size: 11px; color: var(--ms-text-muted);" id="gatewayApiSubtext">6 个账号 × 1500次/天 · 官方每日自动刷新</div>
             </div>
-            <div class="strip-subtext">到期前 15 分钟自动换发，关机重启自动换新</div>
-          </div>
-        </div>
 
-        <div class="strip-cell" style="justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 10px;">
+            <!-- 3. Web 逆向反代通道 (不限次) -->
+            <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; color: var(--ms-text-muted); display: flex; align-items: center; gap: 5px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                  Web 逆向反代通道 (Gemini Web)
+                </span>
+                <span id="gatewayWebProBadge" class="status-badge status-active" style="font-size: 10px;">● 不限次畅连</span>
+              </div>
+              <div style="font-size: 15px; font-weight: 700; color: var(--ms-text-high); font-family: var(--font-mono); letter-spacing: -0.01em;" id="gatewayWebQuotaVal">
+                无限调用 <span style="font-size: 12px; font-weight: 500; color: var(--ms-blue-luminous);">(无次数上限)</span>
+              </div>
+              <div style="height: 4px; background: var(--ms-surface-subtle); border-radius: 2px; overflow: hidden; margin: 8px 0 6px 0;">
+                <div style="height: 100%; width: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius: 2px;"></div>
+              </div>
+              <div style="font-size: 11px; color: var(--ms-text-muted);" id="gatewayWebSubtext">原生 Web 网页逆向 · 官方 0 频控兜底</div>
+            </div>
+          </div>
+
+          <!-- 网关连通性快速单测 (Live Connectivity Test) -->
+          <div style="margin-top: 12px; background: var(--ms-surface-base); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <div style="font-size:12px; font-weight:600; color:var(--ms-text-high); display:flex; align-items:center; gap:6px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span>网关连通性快速单测 (Live Connectivity Test)</span>
+                <span class="status-badge status-active" style="font-size:10px;">● 秒级直连验证</span>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <select id="quickTestModel" class="fluent-input" style="font-size:12px; padding:3px 8px; height:28px; background:var(--ms-surface-elevated); color:var(--ms-text-high); border:1px solid var(--ms-border-card); min-width: 230px;">
+                  <option value="gemini-3.8-flash" selected>gemini-3.8-flash (官网最新旗舰)</option>
+                  <option value="gemini-3.8-live-extended-thinking">gemini-3.8-live-extended-thinking (深度推理)</option>
+                  <option value="gemini-3.7-flash">gemini-3.7-flash (官网全能)</option>
+                  <option value="gemini-3.5-flash-thinking">gemini-3.5-flash-thinking (思考模型)</option>
+                  <option value="gemini-3.1-pro">gemini-3.1-pro (Pro 会员)</option>
+                  <option value="gemini-2.0-flash">gemini-2.0-flash (官方 API)</option>
+                  <option value="gemini-1.5-pro">gemini-1.5-pro (官方 API · 200万上下文)</option>
+                </select>
+
+                <select id="quickTestThinkLevel" class="fluent-input" style="font-size:12px; padding:3px 8px; height:28px; background:var(--ms-surface-elevated); color:var(--ms-text-high); border:1px solid var(--ms-border-card); width: 140px;">
+                  <option value="" selected>思考: 默认平衡</option>
+                  <option value="@think=0">深度推理 (think=0)</option>
+                  <option value="@think=1">深度思考 (think=1)</option>
+                  <option value="@think=2">快速思考 (think=2)</option>
+                  <option value="@think=4">极速低延迟 (think=4)</option>
+                </select>
+
+                <button class="fluent-btn mini primary" id="btnRunQuickTest" onclick="runGatewayQuickTest()" style="font-weight:600; height:28px; padding:0 12px; display:inline-flex; align-items:center; gap:5px;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  执行单测
+                </button>
+              </div>
+            </div>
+            <div id="quickTestOutput" style="display:none; margin-top:10px; background: rgba(0,0,0,0.35); border: 1px solid var(--ms-border-card); border-radius: 4px; padding: 10px 14px; font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); white-space: pre-wrap; line-height: 1.6; max-height: 160px; overflow-y: auto;"></div>
+          </div>
+        </section>
+
+        <!-- 官网动态模型与路由矩阵 (Dynamic Model Routing & Think Matrix) -->
+        <section class="fluent-card">
+          <div class="fluent-pivot-bar">
+            <div class="card-title-text">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              官网动态模型与路由矩阵 (Dynamic Model Routing & Think Matrix)
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <input type="text" id="modelFilterInput" class="fluent-search" placeholder="搜索模型名称或特性..." oninput="renderGatewayModelTable()" style="width: 190px;">
+              <div class="fluent-pivot-tabs" id="modelCategoryTabs">
+                <button class="pivot-tab active" onclick="setModelCategoryFilter('all', this)">全部</button>
+                <button class="pivot-tab" onclick="setModelCategoryFilter('flagship', this)">旗舰推荐</button>
+                <button class="pivot-tab" onclick="setModelCategoryFilter('thinking', this)">深度思考</button>
+                <button class="pivot-tab" onclick="setModelCategoryFilter('pro', this)">Pro 满血</button>
+                <button class="pivot-tab" onclick="setModelCategoryFilter('api', this)">官方 API</button>
+                <button class="pivot-tab" onclick="setModelCategoryFilter('web', this)">Web 逆向</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="fluent-table-box" style="max-height: 380px; overflow-y: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 230px;">模型调用标识 (Model ID)</th>
+                  <th style="width: 140px;">调度通道</th>
+                  <th style="width: 140px;">思考深度支持</th>
+                  <th>特性与适用场景</th>
+                  <th style="width: 90px;">状态</th>
+                  <th style="text-align: right; width: 140px;">快捷操作</th>
+                </tr>
+              </thead>
+              <tbody id="gatewayModelTableBody">
+                <tr><td colspan="6" style="text-align: center; color: var(--ms-text-muted); padding: 20px;">正在动态解析官方模型矩阵...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div> <!-- End of viewGateway -->
+
+      <!-- ======================================================== -->
+      <!-- VIEW 2: 账号集群 (Accounts) -->
+      <!-- ======================================================== -->
+      <div id="viewAccounts" style="display: none; flex-direction: column; gap: 16px;">
+        <!-- 状态与自动化条 -->
+        <section class="fluent-strip">
+          <div class="strip-cell">
             <div class="strip-avatar-icon">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.1l4 4-4 4"></path><path d="M3 12.2v-2a4 4 0 0 1 4-4h14"></path><path d="M7 21.9l-4-4 4-4"></path><path d="M21 11.8v2a4 4 0 0 1-4 4H3"></path></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
             </div>
             <div class="strip-body">
-              <div class="strip-heading">额度见底自动切号</div>
-              <div class="strip-subtext">5h 额度 ≤2% 自动轮转最高小号</div>
+              <div class="strip-heading">
+                <span id="activeEmailText">读取钥匙串凭据...</span>
+                <span class="status-badge status-active">当前挂载</span>
+              </div>
+              <div class="strip-subtext" id="activeNameText">macOS Keychain · gemini:antigravity</div>
             </div>
           </div>
-          <label class="fluent-switch">
-            <input type="checkbox" id="autoSwitchToggle" onchange="toggleAutoSwitch(this)" checked>
-            <span class="fluent-switch-track"></span>
-          </label>
-        </div>
-      </section>
 
-      <!-- 小号集群管理列表 -->
-      <section class="fluent-card">
-        <div class="card-title-bar">
-          <div class="card-title-text">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            纳管小号集群与多源算力矩阵
-          </div>
-          <div class="card-caption">集成 GCP 云端配额、官方 AI Studio 1500次 Key 与 Web Pro 会话反代</div>
-        </div>
-
-        <div class="fluent-table-box">
-          <table>
-            <thead>
-              <tr>
-                <th>账号</th>
-                <th style="width: 80px;">状态</th>
-                <th style="width: 125px;">Gemini 5h</th>
-                <th style="width: 125px;">Gemini 周度</th>
-                <th style="width: 155px;">官方 API 算力 (1,500次/天)</th>
-                <th style="width: 135px;">Web 反代通道</th>
-                <th style="text-align: right; width: 100px;">操作</th>
-              </tr>
-            </thead>
-            <tbody id="poolTableBody">
-              <tr><td colspan="7" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">加载中...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- 单次对话消耗明细 -->
-      <section class="fluent-card">
-        <div class="fluent-pivot-bar">
-          <div class="card-title-text">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-            交互消耗审计日志
-          </div>
-
-          <div style="display: flex; align-items: center; gap: 14px;">
-            <input type="text" id="searchInput" class="fluent-search" placeholder="搜索提问关键词..." oninput="renderTurnLog()">
-            <!-- Microsoft Fluent Pivot Tabs -->
-            <div class="fluent-pivot-tabs" id="filterBtnGroup">
-              <button class="pivot-tab active" onclick="setTimelineFilter('all', this)">全部</button>
-              <button class="pivot-tab" onclick="setTimelineFilter('today', this)">今天</button>
-              <button class="pivot-tab" onclick="setTimelineFilter('yesterday', this)">昨天</button>
-              <button class="pivot-tab" onclick="setTimelineFilter('7days', this)">最近 7 天</button>
+          <div class="strip-cell">
+            <div class="strip-avatar-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+            <div class="strip-body">
+              <div class="strip-heading">
+                <span>无感自动续期守护</span>
+                <span class="status-badge status-active">已保护</span>
+              </div>
+              <div class="strip-subtext">到期前 15 分钟自动换发，关机重启自动换新</div>
             </div>
           </div>
-        </div>
 
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-          <div class="kpi-tile" style="padding: 10px 14px;">
-            <span class="kpi-label">区间总消耗 (Total)</span>
-            <div class="kpi-value" style="font-size: 18px; color: var(--ms-blue-luminous);" id="filterTotalTokens">--</div>
-            <span class="kpi-desc" id="filterTokensBreakdown">输入 -- · 输出 --</span>
+          <div class="strip-cell" style="justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div class="strip-avatar-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.1l4 4-4 4"></path><path d="M3 12.2v-2a4 4 0 0 1 4-4h14"></path><path d="M7 21.9l-4-4 4-4"></path><path d="M21 11.8v2a4 4 0 0 1-4 4H3"></path></svg>
+              </div>
+              <div class="strip-body">
+                <div class="strip-heading">额度见底自动切号</div>
+                <div class="strip-subtext">5h 额度 ≤2% 自动轮转最高小号</div>
+              </div>
+            </div>
+            <label class="fluent-switch">
+              <input type="checkbox" id="autoSwitchToggle" onchange="toggleAutoSwitch(this)" checked>
+              <span class="fluent-switch-track"></span>
+            </label>
           </div>
-          <div class="kpi-tile" style="padding: 10px 14px;">
-            <span class="kpi-label">交互总轮次</span>
-            <div class="kpi-value" style="font-size: 18px;" id="filterTotalTurns">--</div>
-            <span class="kpi-desc">User Inputs</span>
-          </div>
-          <div class="kpi-tile" style="padding: 10px 14px;">
-            <span class="kpi-label">单次平均消耗</span>
-            <div class="kpi-value" style="font-size: 18px;" id="filterAvgTokens">--</div>
-            <span class="kpi-desc" id="filterAvgBreakdown">均次输入 -- · 输出 --</span>
-          </div>
-        </div>
+        </section>
 
-        <div class="fluent-table-box">
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 130px;">时间戳</th>
-                <th>用户指令 (Prompt)</th>
-                <th style="width: 70px;">步骤</th>
-                <th style="text-align: right; width: 140px;">输入 (Input / 上下文)</th>
-                <th style="text-align: right; width: 100px;">输出 (Output)</th>
-                <th style="text-align: right; width: 120px;">总计 (Total)</th>
-              </tr>
-            </thead>
-            <tbody id="turnTableBody">
-              <tr><td colspan="6" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">加载中...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-      </div> <!-- End of viewOverview -->
+        <!-- 小号集群管理列表 -->
+        <section class="fluent-card">
+          <div class="card-title-bar">
+            <div class="card-title-text">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              纳管小号集群与多源算力矩阵
+            </div>
+            <div class="card-caption">集成 GCP 云端配额、官方 AI Studio 1500次 Key 与 Web Pro 会话反代</div>
+          </div>
+
+          <div class="fluent-table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th>账号</th>
+                  <th style="width: 80px;">状态</th>
+                  <th style="width: 125px;">Gemini 5h</th>
+                  <th style="width: 125px;">Gemini 周度</th>
+                  <th style="width: 155px;">官方 API 算力 (1,500次/天)</th>
+                  <th style="width: 135px;">Web 反代通道</th>
+                  <th style="text-align: right; width: 100px;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="poolTableBody">
+                <tr><td colspan="7" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">加载中...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div> <!-- End of viewAccounts -->
+
+      <!-- ======================================================== -->
+      <!-- VIEW 3: 消耗审计 (Audit) -->
+      <!-- ======================================================== -->
+      <div id="viewAudit" style="display: none; flex-direction: column; gap: 16px;">
+        <!-- 号池算力汇总仪表盘 (KPI Tiles) -->
+        <section class="fluent-card">
+          <div class="card-title-bar">
+            <div class="card-title-text">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+              号池算力汇总仪表盘
+            </div>
+            <div class="card-caption" id="dashSyncTime">最新探测: 刚刚</div>
+          </div>
+
+          <div class="kpi-grid">
+            <!-- 5h 总额度 -->
+            <div class="kpi-tile">
+              <div class="kpi-label">
+                <span>5H 可用额度均值</span>
+                <span class="status-badge status-active" id="dash5hTag">充足</span>
+              </div>
+              <div class="kpi-value">
+                <span id="dash5hVal">--</span>
+                <span class="kpi-unit">/ 100%</span>
+              </div>
+              <div class="kpi-track">
+                <div class="kpi-fill" id="dash5hBar" style="width: 0%;"></div>
+              </div>
+              <div class="kpi-desc" id="dash5hSub">载入中...</div>
+            </div>
+
+            <!-- 周度总额度 -->
+            <div class="kpi-tile">
+              <div class="kpi-label">
+                <span>周度可用总容量</span>
+                <span class="status-badge" style="background: var(--ms-green-bg); color: var(--ms-green);" id="dashWeeklyTag">健康</span>
+              </div>
+              <div class="kpi-value">
+                <span id="dashWeeklyVal">--</span>
+                <span class="kpi-unit" id="dashWeeklyMax">/ --%</span>
+              </div>
+              <div class="kpi-track">
+                <div class="kpi-fill" id="dashWeeklyBar" style="width: 0%;"></div>
+              </div>
+              <div class="kpi-desc" id="dashWeeklySub">载入中...</div>
+            </div>
+
+            <!-- 账号就绪度 -->
+            <div class="kpi-tile">
+              <div class="kpi-label">
+                <span>号池可用账号数</span>
+                <span class="status-badge status-active" id="dashAccountTag">就绪</span>
+              </div>
+              <div class="kpi-value">
+                <span id="dashAccountVal">-- / --</span>
+                <span class="kpi-unit">个正常</span>
+              </div>
+              <div class="kpi-track">
+                <div class="kpi-fill" id="dashAccountBar" style="width: 100%;"></div>
+              </div>
+              <div class="kpi-desc" id="dashAccountSub">载入中...</div>
+            </div>
+
+            <!-- 对话累计 Tokens -->
+            <div class="kpi-tile">
+              <div class="kpi-label">
+                <span>全局累计对话消耗</span>
+                <span class="status-badge" style="background: rgba(255,255,255,0.06); color: var(--ms-text-muted);">实时</span>
+              </div>
+              <div class="kpi-value">
+                <span id="dashTotalTokens" style="color: var(--ms-blue-luminous);">--</span>
+                <span class="kpi-unit">Tokens</span>
+              </div>
+              <div class="kpi-track">
+                <div class="kpi-fill" style="width: 100%; background: var(--ms-blue);"></div>
+              </div>
+              <div class="kpi-desc" id="dashTokenSub">载入中...</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 单次对话消耗明细 -->
+        <section class="fluent-card">
+          <div class="fluent-pivot-bar">
+            <div class="card-title-text">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              交互消耗审计日志
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <input type="text" id="searchInput" class="fluent-search" placeholder="搜索提问关键词..." oninput="renderTurnLog()">
+              <div class="fluent-pivot-tabs" id="filterBtnGroup">
+                <button class="pivot-tab active" onclick="setTimelineFilter('all', this)">全部</button>
+                <button class="pivot-tab" onclick="setTimelineFilter('today', this)">今天</button>
+                <button class="pivot-tab" onclick="setTimelineFilter('yesterday', this)">昨天</button>
+                <button class="pivot-tab" onclick="setTimelineFilter('7days', this)">最近 7 天</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+            <div class="kpi-tile" style="padding: 10px 14px;">
+              <span class="kpi-label">区间总消耗 (Total)</span>
+              <div class="kpi-value" style="font-size: 18px; color: var(--ms-blue-luminous);" id="filterTotalTokens">--</div>
+              <span class="kpi-desc" id="filterTokensBreakdown">输入 -- · 输出 --</span>
+            </div>
+            <div class="kpi-tile" style="padding: 10px 14px;">
+              <span class="kpi-label">交互总轮次</span>
+              <div class="kpi-value" style="font-size: 18px;" id="filterTotalTurns">--</div>
+              <span class="kpi-desc">User Inputs</span>
+            </div>
+            <div class="kpi-tile" style="padding: 10px 14px;">
+              <span class="kpi-label">单次平均消耗</span>
+              <div class="kpi-value" style="font-size: 18px;" id="filterAvgTokens">--</div>
+              <span class="kpi-desc" id="filterAvgBreakdown">均次输入 -- · 输出 --</span>
+            </div>
+          </div>
+
+          <div class="fluent-table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 130px;">时间戳</th>
+                  <th>用户指令 (Prompt)</th>
+                  <th style="width: 70px;">步骤</th>
+                  <th style="text-align: right; width: 140px;">输入 (Input / 上下文)</th>
+                  <th style="text-align: right; width: 100px;">输出 (Output)</th>
+                  <th style="text-align: right; width: 120px;">总计 (Total)</th>
+                </tr>
+              </thead>
+              <tbody id="turnTableBody">
+                <tr><td colspan="6" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">加载中...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div> <!-- End of viewAudit -->
 
       <!-- ======================================================== -->
       <!-- VIEW 2: 📖 接口文档与客户端对接中心 (API Docs & Client Integrations) -->
@@ -1396,6 +1451,7 @@ curl -X POST http://localhost:3999/v1/chat/completions \
         if (modelCountEl && cachedGatewayModels.length > 0) {
           modelCountEl.textContent = `● 已实时动态同步 ${cachedGatewayModels.length} 个官网模型 · 端口 3999`;
         }
+        renderGatewayModelTable();
         // 动态同步更新极速单测下拉列表中的官方模型
         const selectEl = document.getElementById('quickTestModel');
         if (selectEl && cachedGatewayModels.length > 0) {
@@ -1669,23 +1725,38 @@ curl -X POST http://localhost:3999/v1/chat/completions \
     }
 
     function switchMainView(view) {
-      const overview = document.getElementById('viewOverview');
-      const docs = document.getElementById('viewDocs');
-      const tabOverview = document.getElementById('tabNavOverview');
-      const tabDocs = document.getElementById('tabNavDocs');
+      const views = {
+        gateway: document.getElementById('viewGateway'),
+        accounts: document.getElementById('viewAccounts'),
+        audit: document.getElementById('viewAudit'),
+        docs: document.getElementById('viewDocs')
+      };
+      const tabs = {
+        gateway: document.getElementById('tabNavGateway'),
+        accounts: document.getElementById('tabNavAccounts'),
+        audit: document.getElementById('tabNavAudit'),
+        docs: document.getElementById('tabNavDocs')
+      };
 
-      if (view === 'docs') {
-        overview.style.display = 'none';
-        docs.style.display = 'flex';
-        tabOverview.classList.remove('active');
-        tabDocs.classList.add('active');
-      } else {
-        overview.style.display = 'flex';
-        docs.style.display = 'none';
-        tabOverview.classList.add('active');
-        tabDocs.classList.remove('active');
+      for (const [k, el] of Object.entries(views)) {
+        if (!el) continue;
+        if (k === view) {
+          el.style.display = 'flex';
+          tabs[k]?.classList.add('active');
+        } else {
+          el.style.display = 'none';
+          tabs[k]?.classList.remove('active');
+        }
       }
     }
+
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+      if (e.key === '1') switchMainView('gateway');
+      else if (e.key === '2') switchMainView('accounts');
+      else if (e.key === '3') switchMainView('audit');
+      else if (e.key === '4') switchMainView('docs');
+    });
 
     function switchClientDoc(client, btn) {
       document.querySelectorAll('#docsClientTabs .pivot-tab').forEach(b => b.classList.remove('active'));
@@ -1832,6 +1903,138 @@ curl -X POST http://localhost:3999/v1/chat/completions \
     }
 
     let cachedGatewayModels = [];
+    let currentModelCategory = 'all';
+
+    function setModelCategoryFilter(cat, btn) {
+      currentModelCategory = cat;
+      document.querySelectorAll('#modelCategoryTabs .pivot-tab').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderGatewayModelTable();
+    }
+
+    function selectModelForQuickTest(modelId) {
+      const selectEl = document.getElementById('quickTestModel');
+      if (selectEl) {
+        let found = false;
+        for (let i = 0; i < selectEl.options.length; i++) {
+          if (selectEl.options[i].value === modelId) {
+            selectEl.selectedIndex = i;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          const opt = new Option(`${modelId} (官方动态)`, modelId, true, true);
+          selectEl.add(opt);
+        }
+        selectEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        selectEl.style.outline = '2px solid var(--ms-blue-luminous)';
+        setTimeout(() => { selectEl.style.outline = 'none'; }, 1500);
+      }
+    }
+
+    function renderGatewayModelTable() {
+      const tbody = document.getElementById('gatewayModelTableBody');
+      if (!tbody) return;
+
+      const search = (document.getElementById('modelFilterInput')?.value || '').toLowerCase().trim();
+
+      const fallbackList = [
+        { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash (最新旗舰)", source: "Gemini Web (官网动态)", description: "Google 官网最新旗舰，极速响应与全能任务", thinkSupport: "@think=0~4 全档位" },
+        { id: "gemini-3.8-live-extended-thinking", name: "Gemini 3.8 Live Extended Thinking (深度推理)", source: "Gemini Web (官网动态)", description: "官方原生超长思维链模型，长篇论证与工程规划", thinkSupport: "原生扩展思考链" },
+        { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash (官网全能)", source: "Gemini Web (官网动态)", description: "官网高频全能多模态旗舰，极佳平衡", thinkSupport: "@think=0~4 支持" },
+        { id: "gemini-3.5-flash-thinking-lite", name: "Gemini 3.5 Flash Thinking (深度思考)", source: "Gemini Web (官网动态)", description: "带思维链深度推理，适合算法与复杂代码", thinkSupport: "思维链展开" },
+        { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro (Pro会员专属)", source: "Gemini Web (Pro会员)", description: "满血 Pro 会员模型，综合逻辑与推理巅峰", thinkSupport: "高级深度思考" },
+        { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (官方极速)", source: "AI Studio (1500次/天)", description: "Google 官方 API 极速模型，低延迟直出", thinkSupport: "支持" },
+        { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (官方满血)", source: "AI Studio (1500次/天)", description: "官方 200 万超大上下文窗口，长文档分析", thinkSupport: "支持" },
+        { id: "gemini-2.0-flash-thinking-exp", name: "Gemini 2.0 Flash Thinking (官方思考)", source: "AI Studio (1500次/天)", description: "官方 API 实验性多步思考模型", thinkSupport: "多步规划" },
+        { id: "gemini-flash-lite", name: "Gemini Flash Lite (Web 极速)", source: "Gemini Web (官网动态)", description: "轻量超快速轻量响应", thinkSupport: "极速无思考" }
+      ];
+
+      let list = (cachedGatewayModels && cachedGatewayModels.length > 0) ? cachedGatewayModels : fallbackList;
+      const flagshipIds = ['gemini-3.8-flash', 'gemini-3.8-live-extended-thinking', 'gemini-3.7-flash', 'gemini-3.5-flash-thinking', 'gemini-3.5-flash-thinking-lite', 'gemini-3.1-pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-thinking-exp'];
+
+      let filtered = list.filter(m => {
+        const id = m.id.toLowerCase();
+        const src = (m.source || '').toLowerCase();
+        if (currentModelCategory === 'flagship') {
+          return flagshipIds.includes(m.id) || id.includes('3.8') || id.includes('3.7');
+        } else if (currentModelCategory === 'thinking') {
+          return id.includes('thinking') || id.includes('extended');
+        } else if (currentModelCategory === 'pro') {
+          return id.includes('pro') || src.includes('pro');
+        } else if (currentModelCategory === 'api') {
+          return src.includes('studio') || src.includes('api');
+        } else if (currentModelCategory === 'web') {
+          return src.includes('web');
+        }
+        return true;
+      });
+
+      if (search) {
+        filtered = filtered.filter(m => {
+          return m.id.toLowerCase().includes(search) || 
+                 (m.name || '').toLowerCase().includes(search) || 
+                 (m.description || '').toLowerCase().includes(search);
+        });
+      }
+
+      filtered.sort((a, b) => {
+        const idxA = flagshipIds.indexOf(a.id);
+        const idxB = flagshipIds.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.id.localeCompare(b.id);
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">未找到匹配的模型</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(m => {
+        const isFlagship = flagshipIds.includes(m.id);
+        const isApi = (m.source || '').includes('Studio') || (m.source || '').includes('API');
+        const isPro = (m.source || '').includes('Pro') || m.id.includes('pro');
+        const isThinking = m.id.includes('thinking') || m.id.includes('extended');
+
+        let channelBadge = isApi 
+          ? `<span class="status-badge" style="background: rgba(0, 120, 212, 0.12); color: var(--ms-blue-luminous); border-color: rgba(0, 120, 212, 0.25);">官方 API (1500次)</span>`
+          : (isPro 
+              ? `<span class="status-badge" style="background: rgba(245, 158, 11, 0.12); color: var(--ms-amber); border-color: rgba(245, 158, 11, 0.25);">Web 逆向 (Pro)</span>`
+              : `<span class="status-badge" style="background: rgba(16, 185, 129, 0.12); color: var(--ms-green); border-color: rgba(16, 185, 129, 0.25);">Web 逆向通道</span>`);
+
+        let thinkBadge = isThinking
+          ? `<span style="font-family:var(--font-mono); font-size:11px; color:#f59e0b; font-weight:600;">原生思维链</span>`
+          : (m.id.includes('3.8') || m.id.includes('3.7')
+              ? `<span style="font-family:var(--font-mono); font-size:11px; color:var(--ms-blue-luminous);">@think=0~4</span>`
+              : `<span style="font-size:11px; color:var(--ms-text-muted);">默认平衡</span>`);
+
+        let statusBadge = `<span class="status-badge status-active" style="font-size:10px;">● 就绪</span>`;
+
+        return `
+          <tr>
+            <td>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <code style="font-family:var(--font-mono); font-size:12px; font-weight:600; color:${isFlagship ? 'var(--ms-blue-luminous)' : 'var(--ms-text-high)'};">${m.id}</code>
+                ${isFlagship ? '<span class="status-badge" style="font-size:9px; padding:0 4px; background:rgba(0,120,212,0.15); color:var(--ms-blue-luminous);">旗舰</span>' : ''}
+              </div>
+            </td>
+            <td>${channelBadge}</td>
+            <td>${thinkBadge}</td>
+            <td style="color:var(--ms-text-mid); font-size:12px;">${m.description || m.name || 'Google 官方模型'}</td>
+            <td>${statusBadge}</td>
+            <td style="text-align: right;">
+              <div style="display:inline-flex; gap:6px; justify-content:flex-end;">
+                <button class="fluent-btn mini" onclick="selectModelForQuickTest('${m.id}')" title="带入上方单测台">单测</button>
+                <button class="fluent-btn mini" onclick="copyText('${m.id}', this)" title="复制模型ID">复制</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
 
     function copyText(text, btn) {
       navigator.clipboard.writeText(text).then(() => {
@@ -2031,12 +2234,14 @@ curl -X POST http://localhost:3999/v1/chat/completions \
         <div>
           正在为账号 <b id="bindAiKeyEmail" style="color: var(--ms-blue-luminous);"></b> 配置官方免费 API Key。
         </div>
-        <div style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-size: 12px; color: var(--ms-text-muted);">
-          💡 <b>关于 1500 次/天额度：</b> Google 为每个个人账号在 AI Studio 免费赠送每天 1500 次高速请求（支持 Gemini 1.5/2.0），不扣信用卡。
+        <div style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-size: 12px; color: var(--ms-text-muted); display: flex; gap: 8px; align-items: flex-start;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 2px; color: var(--ms-blue-luminous);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          <div><b>关于 1500 次/天额度：</b> Google 为每个个人账号在 AI Studio 免费赠送每天 1500 次高速请求（支持 Gemini 1.5/2.0），不扣信用卡。</div>
         </div>
         <div>
-          <button class="fluent-btn primary" onclick="openExternalUrl('https://aistudio.google.com/app/apikey')" style="width: 100%; justify-content: center; padding: 8px 12px;">
-            🚀 一键在浏览器打开当前账号生成页面 (aistudio.google.com) ↗
+          <button class="fluent-btn primary" onclick="openExternalUrl('https://aistudio.google.com/app/apikey')" style="width: 100%; justify-content: center; padding: 8px 12px; gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            前往 Google AI Studio 生成 API Key ↗
           </button>
         </div>
         <div>
@@ -2063,12 +2268,14 @@ curl -X POST http://localhost:3999/v1/chat/completions \
         <div>
           正在为账号 <b id="bindWebAuthEmail" style="color: var(--ms-blue-luminous);"></b> 配置网页版反代凭据。
         </div>
-        <div style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-size: 12px; color: var(--ms-text-muted);">
-          🌟 <b>Pro 会员权益说明：</b> 如果此账号充值了每月 $19.99 的 Google One AI Premium (Gemini Advanced)，绑定其网页 Cookie 后可直接通过本地网关无限调用满血 Pro 模型。
+        <div style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-size: 12px; color: var(--ms-text-muted); display: flex; gap: 8px; align-items: flex-start;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 2px; color: var(--ms-amber);"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          <div><b>Pro 会员权益说明：</b> 如果此账号充值了每月 $19.99 的 Google One AI Premium (Gemini Advanced)，绑定其网页 Cookie 后可直接通过本地网关无限调用满血 Pro 模型。</div>
         </div>
         <div>
-          <button class="fluent-btn" onclick="openExternalUrl('https://gemini.google.com')" style="width: 100%; justify-content: center; padding: 8px 12px;">
-            🌐 在浏览器打开 gemini.google.com 网页 ↗
+          <button class="fluent-btn" onclick="openExternalUrl('https://gemini.google.com')" style="width: 100%; justify-content: center; padding: 8px 12px; gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            在浏览器打开 gemini.google.com 网页 ↗
           </button>
         </div>
         <div>
