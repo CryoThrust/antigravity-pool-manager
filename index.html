@@ -3,43 +3,47 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Antigravity 账号池与配额控制台</title>
+  <title>Antigravity Manager</title>
   <style>
     :root {
-      /* Enterprise World-Class Dark Palette (Apple macOS Pro / Google Cloud / Linear standard) */
-      --ms-bg-canvas: #121316;
-      --ms-bg-header: #18191d;
-      --ms-surface-card: #1c1d22;
-      --ms-surface-card-hover: #22242a;
-      --ms-surface-subtle: #16171b;
-      --ms-surface-elevated: #26282f;
+      /* macOS Pro Dark Palette */
+      --bg-window: #0c0d10;
+      --bg-titlebar: #121317;
+      --bg-sidebar: #131418;
+      --bg-canvas: #090a0c;
+      --bg-inspector: #131418;
+      
+      --surface-card: #18191f;
+      --surface-card-hover: #1e2027;
+      --surface-elevated: #23252e;
+      --surface-subtle: #101115;
 
-      --ms-border-subtle: rgba(255, 255, 255, 0.06);
-      --ms-border-card: rgba(255, 255, 255, 0.075);
-      --ms-border-strong: rgba(255, 255, 255, 0.14);
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-card: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
 
-      --ms-text-high: #f4f4f5;
-      --ms-text-mid: #c0c2c8;
-      --ms-text-muted: #787b84;
-      --ms-text-disabled: #4a4d54;
+      --text-high: #f3f4f6;
+      --text-mid: #9ca3af;
+      --text-muted: #6b7280;
+      --text-disabled: #4b5563;
 
-      /* Restrained Semantic Accents */
-      --ms-blue: #0078d4;
-      --ms-blue-hover: #106ebe;
-      --ms-blue-luminous: #3b82f6;
-      --ms-green: #10b981;
-      --ms-green-bg: rgba(16, 185, 129, 0.10);
-      --ms-amber: #f59e0b;
-      --ms-amber-bg: rgba(245, 158, 11, 0.10);
-      --ms-red: #ef4444;
-      --ms-red-bg: rgba(239, 68, 68, 0.10);
+      --accent-blue: #0078d4;
+      --accent-blue-hover: #106ebe;
+      --accent-blue-glow: #3b82f6;
+      --accent-green: #10b981;
+      --accent-green-bg: rgba(16, 185, 129, 0.12);
+      --accent-amber: #f59e0b;
+      --accent-amber-bg: rgba(245, 158, 11, 0.12);
+      --accent-red: #ef4444;
+      --accent-red-bg: rgba(239, 68, 68, 0.12);
 
-      --radius-sm: 4px;
-      --radius-md: 6px;
-      --radius-lg: 8px;
+      --radius-xs: 3px;
+      --radius-sm: 5px;
+      --radius-md: 7px;
+      --radius-lg: 10px;
 
-      --font-fluent: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", sans-serif;
-      --font-mono: "SF Mono", "Cascadia Code", Menlo, Monaco, Consolas, monospace;
+      --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "PingFang SC", sans-serif;
+      --font-mono: "SF Mono", "Cascadia Code", Menlo, Monaco, monospace;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -48,13 +52,12 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: var(--ms-bg-canvas);
-      color: var(--ms-text-high);
-      font-family: var(--font-fluent);
+      background: var(--bg-window);
+      color: var(--text-high);
+      font-family: var(--font-system);
       font-size: 13px;
-      line-height: 1.5;
+      line-height: 1.45;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
       user-select: none;
     }
 
@@ -63,2258 +66,1770 @@
       flex-direction: column;
       width: 100%;
       height: 100%;
-      background: var(--ms-bg-canvas);
+      background: var(--bg-window);
     }
 
-    :root {
-      --header-pad-left: 80px;
-    }
-    body.in-browser {
-      --header-pad-left: 20px;
-    }
-
-    /* Microsoft Fluent Command Bar / Window Header */
-    .fluent-header {
-      height: 52px;
-      padding-left: var(--header-pad-left);
-      padding-right: 20px;
+    /* ─── 顶部窗口标题栏 (macOS Native Titlebar) ─────────────────────── */
+    .app-titlebar {
+      height: 44px;
+      background: var(--bg-titlebar);
+      border-bottom: 1px solid var(--border-subtle);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--ms-border-subtle);
-      background: var(--ms-bg-header);
+      padding-left: 80px; /* 留出交通灯位置 */
+      padding-right: 14px;
       flex-shrink: 0;
-      cursor: default;
       -webkit-app-region: drag;
-      user-select: none;
     }
 
-    .fluent-header-actions,
-    .fluent-header button,
-    .fluent-badge {
+    .titlebar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .app-title-text {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-high);
+      letter-spacing: -0.01em;
+    }
+    .title-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: var(--radius-xs);
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text-mid);
+    }
+
+    .titlebar-center {
+      flex: 1;
+    }
+
+    .titlebar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       -webkit-app-region: no-drag;
     }
 
-    .fluent-breadcrumb {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--ms-text-high);
-      letter-spacing: -0.01em;
-    }
-    .fluent-breadcrumb .sep {
-      color: var(--ms-text-muted);
-      font-weight: 400;
-    }
-    .fluent-badge {
-      font-size: 11px;
-      font-weight: 500;
-      padding: 1px 7px;
-      border-radius: var(--radius-sm);
-      background: var(--ms-green-bg);
-      color: var(--ms-green);
-      border: 1px solid rgba(35, 165, 90, 0.25);
+    .status-pill {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      font-size: 11px;
+      color: var(--text-mid);
     }
-    .fluent-badge .dot {
+    .status-dot {
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: var(--ms-green);
+      background: var(--accent-green);
+    }
+    .status-dot.amber { background: var(--accent-amber); }
+    .status-dot.red { background: var(--accent-red); }
+
+    /* ─── 三栏工作区 (Sidebar + Main Canvas + Inspector) ──────────── */
+    .app-workspace {
+      display: flex;
+      flex: 1;
+      height: calc(100% - 44px);
+      overflow: hidden;
     }
 
-    .fluent-header-actions {
+    /* 1. 左侧侧边栏 (200px) */
+    .app-sidebar {
+      width: 200px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px 10px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-group {
+      margin-bottom: 18px;
+    }
+    .sidebar-group-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      padding: 4px 8px 6px 8px;
+    }
+
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      border: none;
+      color: var(--text-mid);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      transition: all 100ms ease;
+      outline: none;
+    }
+    .sidebar-nav-item:hover {
+      background: var(--surface-card);
+      color: var(--text-high);
+    }
+    .sidebar-nav-item.active {
+      background: rgba(0, 120, 212, 0.15);
+      color: var(--text-high);
+      font-weight: 600;
+    }
+    .sidebar-nav-item.active .nav-icon {
+      color: var(--accent-blue-glow);
+    }
+
+    .nav-label-box {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-
-    /* Microsoft Fluent Buttons */
-    .fluent-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      height: 30px;
-      padding: 0 14px;
-      font-size: 12px;
-      font-weight: 500;
-      font-family: var(--font-fluent);
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      border: 1px solid var(--ms-border-card);
-      background: var(--ms-surface-card);
-      color: var(--ms-text-high);
-      outline: none;
-      transition: all 120ms ease;
+    .nav-icon {
+      flex-shrink: 0;
+      color: var(--text-muted);
+      transition: color 100ms ease;
     }
-    .fluent-btn:hover {
-      background: var(--ms-surface-card-hover);
-      border-color: var(--ms-border-strong);
-    }
-    .fluent-btn:active {
-      transform: scale(0.98);
-    }
-    .fluent-btn.primary {
-      background: var(--ms-blue);
-      border-color: var(--ms-blue);
-      color: #ffffff;
-      box-shadow: 0 1px 3px rgba(0, 120, 212, 0.35);
-    }
-    .fluent-btn.primary:hover {
-      background: var(--ms-blue-hover);
-      border-color: var(--ms-blue-hover);
-    }
-    .fluent-btn.subtle-danger {
-      background: transparent;
-      border-color: transparent;
-      color: var(--ms-red);
-    }
-    .fluent-btn.subtle-danger:hover {
-      background: var(--ms-red-bg);
+    .nav-count-badge {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 1px 5px;
+      border-radius: var(--radius-xs);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
     }
 
-    /* Scrollable Workspace */
-    .fluent-content {
+    .sidebar-bottom {
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 10px;
+    }
+
+    /* 2. 中间核心画布 (Main Canvas) */
+    .app-main {
       flex: 1;
-      padding: 20px 24px 36px 24px;
+      background: var(--bg-canvas);
       display: flex;
       flex-direction: column;
-      gap: 16px;
       overflow-y: overlay;
       overflow-x: hidden;
+      padding: 18px 22px;
+      position: relative;
     }
-
-    .fluent-content::-webkit-scrollbar { width: 6px; }
-    .fluent-content::-webkit-scrollbar-track { background: transparent; }
-    .fluent-content::-webkit-scrollbar-thumb {
+    .app-main::-webkit-scrollbar { width: 5px; }
+    .app-main::-webkit-scrollbar-thumb {
       background: rgba(255, 255, 255, 0.12);
       border-radius: 3px;
     }
-    .fluent-content::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.22); }
 
-    /* Microsoft InfoBar (Notice) */
-    .fluent-infobar {
+    .view-container {
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+      animation: fadeIn 120ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .view-container.active {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
-      border-radius: var(--radius-sm);
-      font-size: 12px;
-      background: var(--ms-surface-card);
-      border-left: 3px solid var(--ms-blue);
-      border-top: 1px solid var(--ms-border-subtle);
-      border-right: 1px solid var(--ms-border-subtle);
-      border-bottom: 1px solid var(--ms-border-subtle);
-      animation: fadeIn 120ms ease;
-    }
-    .fluent-infobar.success {
-      border-left-color: var(--ms-green);
     }
 
-    /* ======================================================== */
-    /* MICROSOFT AZURE / POWER BI STYLE KPI TILES (仪表盘) */
-    /* ======================================================== */
-    .fluent-card {
-      background: var(--ms-surface-card);
-      border: 1px solid var(--ms-border-card);
-      border-radius: var(--radius-md);
-      padding: 16px 18px;
+    /* 3. 右侧常驻检查器 (280px) */
+    .app-inspector {
+      width: 280px;
+      background: var(--bg-inspector);
+      border-left: 1px solid var(--border-subtle);
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 14px;
+      padding: 16px 14px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .app-inspector::-webkit-scrollbar { width: 4px; }
+    .app-inspector::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
     }
 
-    .card-title-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .card-title-text {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--ms-text-high);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .card-caption {
-      font-size: 11px;
-      color: var(--ms-text-muted);
-    }
-
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-    }
-
-    /* Microsoft Minimalist KPI Tile */
-    .kpi-tile {
-      background: var(--ms-surface-subtle);
-      border: 1px solid var(--ms-border-subtle);
-      border-radius: var(--radius-sm);
+    /* ─── 通用卡片与视觉表面 ─────────────────────────────────────── */
+    .pro-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-md);
       padding: 14px 16px;
       display: flex;
       flex-direction: column;
+      gap: 10px;
+    }
+
+    .pro-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pro-card-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-high);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pro-card-caption {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* 按钮规范 */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       gap: 5px;
-      position: relative;
-      transition: background 120ms ease, border-color 120ms ease;
+      height: 28px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: 1px solid var(--border-card);
+      background: var(--surface-card);
+      color: var(--text-high);
+      outline: none;
+      transition: all 100ms ease;
+      white-space: nowrap;
     }
-    .kpi-tile:hover {
-      background: var(--ms-surface-card-hover);
-      border-color: var(--ms-border-card);
+    .btn:hover {
+      background: var(--surface-card-hover);
+      border-color: var(--border-strong);
     }
-    .kpi-label {
+    .btn.primary {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: #fff;
+    }
+    .btn.primary:hover {
+      background: var(--accent-blue-hover);
+    }
+    .btn.mini {
+      height: 24px;
+      padding: 0 7px;
+      font-size: 11px;
+    }
+    .btn.danger-subtle {
+      background: transparent;
+      border-color: transparent;
+      color: var(--accent-red);
+    }
+    .btn.danger-subtle:hover {
+      background: var(--accent-red-bg);
+    }
+
+    /* ─── Hero 算力双通道 Twin Cards ────────────────────────────── */
+    .capacity-twin-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .capacity-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cap-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .cap-title {
       font-size: 11px;
       font-weight: 500;
-      color: var(--ms-text-muted);
+      color: var(--text-mid);
       display: flex;
-      justify-content: space-between;
       align-items: center;
-    }
-    .kpi-value {
-      font-size: 24px;
-      font-weight: 600;
-      font-family: var(--font-mono);
-      font-feature-settings: "tnum";
-      letter-spacing: -0.02em;
-      color: var(--ms-text-high);
-      display: flex;
-      align-items: baseline;
       gap: 6px;
-      margin: 2px 0;
     }
-    .kpi-unit {
-      font-size: 12px;
-      font-weight: 400;
-      color: var(--ms-text-muted);
+    .cap-value {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-high);
+      letter-spacing: -0.02em;
     }
-    .kpi-track {
+    .cap-track {
       height: 4px;
       background: rgba(255, 255, 255, 0.08);
       border-radius: 2px;
       overflow: hidden;
-      margin-top: 4px;
     }
-    .kpi-fill {
+    .cap-fill {
       height: 100%;
-      background: var(--ms-green);
+      background: var(--accent-green);
       border-radius: 2px;
-      transition: width 240ms ease;
+      transition: width 0.3s ease;
     }
-    .kpi-desc {
+    .cap-desc {
       font-size: 11px;
-      color: var(--ms-text-muted);
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      color: var(--text-muted);
     }
 
-    /* Microsoft Fluent Status Strip */
-    .fluent-strip {
+    /* ─── 4 大主力旗舰卡片网格 (Hero Models) ────────────────────── */
+    .hero-models-grid {
       display: grid;
-      grid-template-columns: 1.4fr 1.1fr 1.2fr;
-      gap: 12px;
-      background: var(--ms-surface-card);
-      border: 1px solid var(--ms-border-card);
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .hero-model-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-card);
       border-radius: var(--radius-md);
-      padding: 12px 18px;
-    }
-
-    .strip-cell {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .strip-avatar-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: var(--radius-sm);
-      background: var(--ms-surface-subtle);
-      border: 1px solid var(--ms-border-subtle);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--ms-text-mid);
-      flex-shrink: 0;
-    }
-    .strip-body {
+      padding: 12px 14px;
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      flex: 1;
+      justify-content: space-between;
+      gap: 8px;
+      transition: border-color 120ms ease;
     }
-    .strip-heading {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--ms-text-high);
+    .hero-model-card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+    .hero-model-top {
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: space-between;
     }
-    .strip-subtext {
+    .hero-model-id {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-blue-glow);
+    }
+    .hero-model-tag {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: var(--radius-xs);
+      background: rgba(0, 120, 212, 0.15);
+      color: var(--accent-blue-glow);
+    }
+    .hero-model-desc {
       font-size: 11px;
-      color: var(--ms-text-muted);
+      color: var(--text-mid);
+      line-height: 1.4;
+    }
+    .hero-model-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 6px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .hero-model-latency {
+      font-size: 11px;
+      color: var(--accent-green);
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
-    /* Windows 11 Fluent Toggle Switch */
-    .fluent-switch {
-      position: relative;
-      display: inline-block;
-      width: 40px;
-      height: 20px;
-      flex-shrink: 0;
+    /* ─── 紧凑单测台 (Playground Lite) ──────────────────────────── */
+    .playground-box {
+      background: var(--surface-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
-    .fluent-switch input { opacity: 0; width: 0; height: 0; }
-    .fluent-switch-track {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: var(--ms-surface-subtle);
-      transition: .15s ease-in-out;
-      border-radius: 20px;
-      border: 1px solid var(--ms-border-strong);
+    .playground-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
     }
-    .fluent-switch-track:before {
-      position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px;
-      background-color: #ffffff;
-      transition: .15s ease-in-out;
-      border-radius: 50%;
-    }
-    input:checked + .fluent-switch-track {
-      background-color: var(--ms-blue);
-      border-color: var(--ms-blue);
-    }
-    input:checked + .fluent-switch-track:before {
-      transform: translateX(20px);
-    }
-
-    /* Microsoft Data Grid (Azure Table style) */
-    .fluent-table-box {
-      border: 1px solid var(--ms-border-subtle);
+    .playground-select {
+      height: 26px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-card);
       border-radius: var(--radius-sm);
-      overflow: hidden;
-      background: var(--ms-surface-subtle);
+      color: var(--text-high);
+      font-size: 11px;
+      padding: 0 6px;
+      outline: none;
+    }
+
+    /* 表格规范 */
+    .pro-table-box {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-card);
+      background: var(--surface-card);
     }
     table {
       width: 100%;
       border-collapse: collapse;
+      font-size: 12px;
       text-align: left;
     }
     th {
+      background: var(--surface-subtle);
+      color: var(--text-muted);
+      font-weight: 500;
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--border-card);
       font-size: 11px;
-      font-weight: 600;
-      color: var(--ms-text-muted);
-      background: rgba(0, 0, 0, 0.2);
-      padding: 9px 14px;
-      border-bottom: 1px solid var(--ms-border-subtle);
+      white-space: nowrap;
     }
     td {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--ms-border-subtle);
-      font-size: 12px;
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-high);
       vertical-align: middle;
-      color: var(--ms-text-high);
     }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: rgba(255, 255, 255, 0.02); }
 
-    .status-badge {
+    /* Switch 控件 */
+    .fluent-switch {
+      position: relative;
+      display: inline-block;
+      width: 34px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .fluent-switch input { opacity: 0; width: 0; height: 0; }
+    .fluent-switch-track {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: 9px;
+      transition: all 120ms ease;
+    }
+    .fluent-switch-track:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background: #fff;
+      border-radius: 50%;
+      transition: all 120ms ease;
+    }
+    .fluent-switch input:checked + .fluent-switch-track {
+      background: var(--accent-blue);
+    }
+    .fluent-switch input:checked + .fluent-switch-track:before {
+      transform: translateX(16px);
+    }
+
+    /* 状态微标签 */
+    .badge {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 2px 7px;
-      font-size: 11px;
-      font-weight: 500;
-      border-radius: var(--radius-sm);
-    }
-    .status-active {
-      background: rgba(0, 120, 212, 0.15);
-      color: var(--ms-blue-luminous);
-      border: 1px solid rgba(0, 120, 212, 0.3);
-    }
-    .status-standby {
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--ms-text-muted);
-      border: 1px solid var(--ms-border-subtle);
-    }
-
-    .quota-cell {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      width: 130px;
-    }
-    .quota-cell-head {
-      display: flex;
-      justify-content: space-between;
-      font-family: var(--font-mono);
-      font-feature-settings: "tnum";
-      font-size: 11px;
-    }
-    .quota-cell-track {
-      height: 4px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .quota-cell-fill {
-      height: 100%;
-      background: var(--ms-green);
-      border-radius: 2px;
-    }
-    .quota-cell-fill.warn { background: var(--ms-amber); }
-    .quota-cell-fill.danger { background: var(--ms-red); }
-    .quota-cell-reset {
       font-size: 10px;
-      color: var(--ms-text-muted);
-      font-family: var(--font-mono);
-    }
-
-    /* Microsoft Fluent Pivot Filter Tabs (经典下划线选项卡) */
-    .fluent-pivot-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .fluent-pivot-tabs {
-      display: inline-flex;
-      border-bottom: 2px solid transparent;
-      gap: 8px;
-    }
-    .pivot-tab {
-      padding: 6px 14px;
-      font-size: 12px;
       font-weight: 500;
-      color: var(--ms-text-muted);
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      position: relative;
-      transition: color 120ms ease;
+      padding: 1px 6px;
+      border-radius: var(--radius-xs);
     }
-    .pivot-tab:hover { color: var(--ms-text-high); }
-    .pivot-tab.active {
-      color: var(--ms-text-high);
-      font-weight: 600;
+    .badge.green {
+      background: var(--accent-green-bg);
+      color: var(--accent-green);
     }
-    .pivot-tab.active:after {
-      content: "";
-      position: absolute;
-      bottom: -2px;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: var(--ms-blue);
-      border-radius: 2px;
+    .badge.amber {
+      background: var(--accent-amber-bg);
+      color: var(--accent-amber);
+    }
+    .badge.red {
+      background: var(--accent-red-bg);
+      color: var(--accent-red);
+    }
+    .badge.blue {
+      background: rgba(0, 120, 212, 0.12);
+      color: var(--accent-blue-glow);
     }
 
-    .fluent-search {
-      height: 28px;
-      padding: 0 10px;
-      font-size: 12px;
-      font-family: var(--font-fluent);
-      background: var(--ms-surface-subtle);
-      border: 1px solid var(--ms-border-card);
+    /* 搜索框 */
+    .search-input {
+      height: 26px;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border-card);
       border-radius: var(--radius-sm);
-      color: var(--ms-text-high);
+      color: var(--text-high);
+      font-size: 11px;
+      padding: 0 8px;
       outline: none;
-      width: 190px;
-      transition: border-color 120ms ease;
+      transition: border-color 100ms ease;
     }
-    .fluent-search:focus {
-      border-color: var(--ms-blue);
-    }
-
-    .tabular {
-      font-family: var(--font-mono);
-      font-feature-settings: "tnum";
+    .search-input:focus {
+      border-color: var(--accent-blue);
     }
 
-    /* Fluent Modal Overlay & Dialog */
-    .fluent-modal-overlay {
+    /* 模态弹窗 */
+    .modal-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.65);
+      background: rgba(0, 0, 0, 0.7);
       backdrop-filter: blur(4px);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 9999;
     }
-    .fluent-modal {
-      background: var(--ms-surface-elevated);
-      border: 1px solid var(--ms-border-card);
-      border-radius: 8px;
-      width: 520px;
+    .modal-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-lg);
+      width: 480px;
       max-width: 90vw;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .fluent-modal-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--ms-text-high);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .fluent-modal-body {
-      font-size: 13px;
-      color: var(--ms-text-base);
-      line-height: 1.6;
+      padding: 20px;
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
-    .fluent-input {
-      width: 100%;
-      background: var(--ms-surface-base);
-      border: 1px solid var(--ms-border-subtle);
-      border-radius: 4px;
-      padding: 8px 12px;
-      font-size: 13px;
-      color: var(--ms-text-high);
-      font-family: inherit;
-      box-sizing: border-box;
-    }
-    .fluent-input:focus {
-      outline: none;
-      border-color: var(--ms-blue);
-    }
-    .fluent-modal-actions {
+    .modal-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-high);
       display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 8px;
+      align-items: center;
+      gap: 6px;
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-3px); }
+      from { opacity: 0; transform: translateY(-2px); }
       to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
 
-  <div class="app-shell">
-    <!-- Microsoft Fluent Command Bar (原生拖拽区域) -->
-    <header class="fluent-header" onmousedown="handleHeaderMouseDown(event)">
-      <div class="fluent-breadcrumb">
-        <span>ANTIGRAVITY POOL MANAGER</span>
-        <span class="sep">/</span>
-        <span>账号调度中心</span>
-        <span class="fluent-badge" id="coreStatusBadge">
-          <span class="dot"></span> 正常运行
-        </span>
+<div class="app-shell">
+  <!-- 顶部 macOS 原生标题栏 (拖拽区) -->
+  <header class="app-titlebar" onmousedown="handleTitlebarMouseDown(event)">
+    <div class="titlebar-left">
+      <span class="app-title-text">Antigravity Manager</span>
+      <span class="title-badge">PRO 调度矩阵</span>
+    </div>
+    <div class="titlebar-center"></div>
+    <div class="titlebar-right">
+      <div class="status-pill">
+        <span class="status-dot green"></span>
+        <span style="font-size: 11px;">网关端口: 3999</span>
       </div>
+      <div class="status-pill" style="gap: 8px;">
+        <span style="font-size: 11px; color: var(--text-mid);">故障自动切号</span>
+        <label class="fluent-switch">
+          <input type="checkbox" id="autoSwitchToggle" onchange="toggleAutoSwitch(this)" checked>
+          <span class="fluent-switch-track"></span>
+        </label>
+      </div>
+      <button class="btn primary mini" onclick="triggerAddAccountAuto()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>接入账号</span>
+      </button>
+    </div>
+  </header>
 
-      <div class="fluent-header-actions">
-        <div class="fluent-pivot-tabs" style="margin-right: 8px;">
-          <button class="pivot-tab active" id="tabNavGateway" onclick="switchMainView('gateway')">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: middle;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            统一网关
-          </button>
-          <button class="pivot-tab" id="tabNavAccounts" onclick="switchMainView('accounts')">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: middle;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
-            账号集群
-          </button>
-          <button class="pivot-tab" id="tabNavAudit" onclick="switchMainView('audit')">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: middle;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-            消耗审计
-          </button>
-          <button class="pivot-tab" id="tabNavDocs" onclick="switchMainView('docs')">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: middle;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-            接口文档
-          </button>
+  <!-- 三栏工作区 -->
+  <div class="app-workspace">
+    <!-- 1. 左侧 Sidebar (200px) -->
+    <aside class="app-sidebar">
+      <div>
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">核心调度</div>
+          <nav>
+            <button class="sidebar-nav-item active" id="navItemHub" onclick="switchSidebarView('hub')">
+              <div class="nav-label-box">
+                <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <span>调度总览</span>
+              </div>
+              <span class="nav-count-badge" id="navBadgeHub">实时</span>
+            </button>
+            <button class="sidebar-nav-item" id="navItemAccounts" onclick="switchSidebarView('accounts')">
+              <div class="nav-label-box">
+                <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                <span>账号矩阵</span>
+              </div>
+              <span class="nav-count-badge" id="navBadgeAccountsCount">--</span>
+            </button>
+            <button class="sidebar-nav-item" id="navItemAudit" onclick="switchSidebarView('audit')">
+              <div class="nav-label-box">
+                <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                <span>消耗审计</span>
+              </div>
+            </button>
+          </nav>
         </div>
-        <button class="fluent-btn" onclick="refreshAllQuotas()">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
-          同步配额
-        </button>
-        <button class="fluent-btn primary" id="btnAddAccount" onclick="triggerAddAccountAuto()">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          添加账号
-        </button>
-      </div>
-    </header>
 
-    <!-- Main Workspace -->
-    <main class="fluent-content">
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">模型与路由</div>
+          <nav>
+            <button class="sidebar-nav-item" id="navItemModels" onclick="switchSidebarView('models')">
+              <div class="nav-label-box">
+                <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                <span>动态模型库</span>
+              </div>
+              <span class="nav-count-badge" id="navBadgeModelsCount">42</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <div class="sidebar-bottom">
+        <div class="sidebar-group-title">系统与接入</div>
+        <nav>
+          <button class="sidebar-nav-item" id="navItemDocs" onclick="switchSidebarView('docs')">
+            <div class="nav-label-box">
+              <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+              <span>接入指引</span>
+            </div>
+          </button>
+          <button class="sidebar-nav-item" onclick="refreshAllQuotas()">
+            <div class="nav-label-box">
+              <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
+              <span>同步配额</span>
+            </div>
+          </button>
+        </nav>
+      </div>
+    </aside>
+
+    <!-- 2. 中间核心画布 (Main Canvas) -->
+    <main class="app-main">
       
-      <!-- InfoBar -->
-      <div id="noticeBox" style="display: none;" class="fluent-infobar">
-        <span id="noticeText"></span>
-        <div style="display: flex; gap: 8px;" id="noticeActions"></div>
-      </div>
+      <!-- 视图 1: 调度总览 (Hero Hub - 默认主视区) -->
+      <div id="viewHub" class="view-container active">
+        <!-- A. 真实算力双通道 Twin Cards (杜绝假进度条) -->
+        <div class="capacity-twin-grid">
+          <!-- 官方 API 算力池 -->
+          <div class="capacity-card">
+            <div class="cap-head">
+              <span class="cap-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                官方 API 算力池 (AI Studio)
+              </span>
+              <span class="badge green" id="gatewayApiPercentBadge">100% 充足</span>
+            </div>
+            <div class="cap-value" id="gatewayApiCapacityVal">剩余 9,000 / 9,000 次/天</div>
+            <div class="cap-track">
+              <div class="cap-fill" id="gatewayApiProgressBar" style="width: 100%;"></div>
+            </div>
+            <div class="cap-desc" id="gatewayApiSubtext">6 个健康账号 · 官方每日自动重置</div>
+          </div>
 
-      <!-- ======================================================== -->
-      <!-- VIEW 1: 统一网关 (Gateway - 默认主视图) -->
-      <!-- ======================================================== -->
-      <div id="viewGateway" style="display: flex; flex-direction: column; gap: 16px;">
-        <!-- 全源统一 API 网关看板 -->
-        <section class="fluent-card">
-          <div class="card-title-bar">
-            <div class="card-title-text">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              统一 API 网关 (/v1)
+          <!-- Web 逆向反代通道 -->
+          <div class="capacity-card">
+            <div class="cap-head">
+              <span class="cap-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                Web 逆向反代通道 (Gemini Web)
+              </span>
+              <span class="badge blue" id="gatewayWebProBadge">● 无限调用免流</span>
+            </div>
+            <div class="cap-value" id="gatewayWebQuotaVal" style="color: var(--accent-blue-glow);">
+              不限调用频次 <span style="font-size: 11px; font-weight: normal; color: var(--text-mid);">(0 官方频控)</span>
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--text-mid);">
+              <span class="badge green">● 会话拓扑就绪</span>
+              <span id="gatewayWebSubtext">原生 Web 网页会话 · 自动续期守护</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- B. 4 大主力旗舰模型直通台 (Hero Model Cards) -->
+        <div class="pro-card">
+          <div class="pro-card-header">
+            <div class="pro-card-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              主力旗舰模型就绪台 (Primary Flagships)
+            </div>
+            <button class="btn mini" onclick="switchSidebarView('models')">查看全部 42 个动态模型 →</button>
+          </div>
+
+          <div class="hero-models-grid">
+            <!-- 1. gemini-3.8-flash -->
+            <div class="hero-model-card">
+              <div>
+                <div class="hero-model-top">
+                  <span class="hero-model-id">gemini-3.8-flash</span>
+                  <span class="hero-model-tag">官网旗舰</span>
+                </div>
+                <div class="hero-model-desc" style="margin-top: 4px;">
+                  Google 官网最新多模态旗舰，日常任务与极速代码补全首选，支持 @think=0~4。
+                </div>
+              </div>
+              <div class="hero-model-footer">
+                <span class="hero-model-latency"><span class="status-dot green"></span> P95 延迟 180ms</span>
+                <div style="display: flex; gap: 4px;">
+                  <button class="btn mini" onclick="selectModelForQuickTest('gemini-3.8-flash')">测试</button>
+                  <button class="btn mini" onclick="copyText('gemini-3.8-flash', this)">复制</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. gemini-3.8-live-extended-thinking -->
+            <div class="hero-model-card">
+              <div>
+                <div class="hero-model-top">
+                  <span class="hero-model-id" style="color: #f59e0b;">gemini-3.8-live-thinking</span>
+                  <span class="badge amber">深度思维链</span>
+                </div>
+                <div class="hero-model-desc" style="margin-top: 4px;">
+                  官方原生超长思维链推理模型，专门用于复杂算法重构、架构推演与多步论证。
+                </div>
+              </div>
+              <div class="hero-model-footer">
+                <span class="hero-model-latency"><span class="status-dot green"></span> 原生展开</span>
+                <div style="display: flex; gap: 4px;">
+                  <button class="btn mini" onclick="selectModelForQuickTest('gemini-3.8-live-extended-thinking')">测试</button>
+                  <button class="btn mini" onclick="copyText('gemini-3.8-live-extended-thinking', this)">复制</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. gemini-3.7-flash -->
+            <div class="hero-model-card">
+              <div>
+                <div class="hero-model-top">
+                  <span class="hero-model-id">gemini-3.7-flash</span>
+                  <span class="hero-model-tag">全能均衡</span>
+                </div>
+                <div class="hero-model-desc" style="margin-top: 4px;">
+                  高吞吐全能主力，响应极其顺滑稳定，深度兼容各主流 IDE 扩展。
+                </div>
+              </div>
+              <div class="hero-model-footer">
+                <span class="hero-model-latency"><span class="status-dot green"></span> P95 延迟 220ms</span>
+                <div style="display: flex; gap: 4px;">
+                  <button class="btn mini" onclick="selectModelForQuickTest('gemini-3.7-flash')">测试</button>
+                  <button class="btn mini" onclick="copyText('gemini-3.7-flash', this)">复制</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. gemini-3.1-pro -->
+            <div class="hero-model-card">
+              <div>
+                <div class="hero-model-top">
+                  <span class="hero-model-id" style="color: #a78bfa;">gemini-3.1-pro</span>
+                  <span class="badge" style="background: rgba(167, 139, 250, 0.15); color: #a78bfa;">Pro 满血</span>
+                </div>
+                <div class="hero-model-desc" style="margin-top: 4px;">
+                  自动调度号池中已开通 Gemini Advanced 会员的账号，输出顶级逻辑质量。
+                </div>
+              </div>
+              <div class="hero-model-footer">
+                <span class="hero-model-latency"><span class="status-dot green"></span> 会员专属</span>
+                <div style="display: flex; gap: 4px;">
+                  <button class="btn mini" onclick="selectModelForQuickTest('gemini-3.1-pro')">测试</button>
+                  <button class="btn mini" onclick="copyText('gemini-3.1-pro', this)">复制</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- C. 极速单测交互台 (Playground Lite) -->
+        <div class="playground-box">
+          <div class="playground-bar">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>网关快速单测 (Playground Lite)</span>
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
-              <span class="fluent-badge">
-                <span class="dot" style="background: var(--ms-green);"></span> 运行中 (端口 3999)
-              </span>
-              <button class="fluent-btn mini" onclick="openModelsModal()">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 3px;"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                模型与别名清单
+              <select id="quickTestModel" class="playground-select" style="min-width: 200px;">
+                <option value="gemini-3.8-flash" selected>gemini-3.8-flash (最新旗舰)</option>
+                <option value="gemini-3.8-live-extended-thinking">gemini-3.8-live-extended-thinking (深度推理)</option>
+                <option value="gemini-3.7-flash">gemini-3.7-flash (官网全能)</option>
+                <option value="gemini-3.1-pro">gemini-3.1-pro (Pro 会员)</option>
+                <option value="gemini-2.0-flash">gemini-2.0-flash (官方 API)</option>
+              </select>
+
+              <select id="quickTestThinkLevel" class="playground-select" style="width: 120px;">
+                <option value="" selected>思考: 默认平衡</option>
+                <option value="@think=0">深度推理 (think=0)</option>
+                <option value="@think=4">极速低延迟 (think=4)</option>
+              </select>
+
+              <button class="btn primary mini" id="btnRunQuickTest" onclick="runGatewayQuickTest()">
+                <span>执行单测</span>
               </button>
             </div>
           </div>
+          <div id="quickTestOutput" style="display:none; margin-top:6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-card); border-radius: 4px; padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; color: var(--text-high); white-space: pre-wrap; line-height: 1.5; max-height: 140px; overflow-y: auto;"></div>
+        </div>
+      </div>
 
-          <div style="display: grid; grid-template-columns: 1.15fr 1.4fr 1.45fr; gap: 12px; margin-top: 10px;">
-            <!-- 1. 接口 Base URL -->
-            <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card); display: flex; flex-direction: column; justify-content: space-between;">
-              <div>
-                <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                  服务 Base URL (填入 Cursor / Cline / Roo Code)
-                </div>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <code style="font-family: var(--font-mono); font-size: 13px; color: var(--ms-blue-luminous); font-weight: 600;" id="gatewayBaseUrlText">http://localhost:3999/v1</code>
-                  <button class="fluent-btn mini" onclick="copyText('http://localhost:3999/v1', this)">复制</button>
-                </div>
-              </div>
-              <div style="font-size: 11px; color: var(--ms-text-muted); margin-top: 8px;" id="gatewayDynamicModelsVal">● 已动态同步 42 个官方模型 · 端口 3999</div>
+      <!-- 视图 2: 账号矩阵 (Accounts) -->
+      <div id="viewAccounts" class="view-container">
+        <div class="pro-card">
+          <div class="pro-card-header">
+            <div class="pro-card-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+              纳管小号集群多源算力矩阵
             </div>
-
-            <!-- 2. 官方 API 算力池 (1500次/号/天) -->
-            <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <span style="font-size: 11px; color: var(--ms-text-muted); display: flex; align-items: center; gap: 5px;">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                  官方 API 算力池 (AI Studio)
-                </span>
-                <span id="gatewayApiPercentBadge" class="status-badge status-active" style="font-size: 10px; font-weight: 600;">100% 充足</span>
-              </div>
-              <div style="font-size: 15px; font-weight: 700; color: var(--ms-text-high); font-family: var(--font-mono); letter-spacing: -0.01em;" id="gatewayApiCapacityVal">
-                剩余 9,000 / 9,000 次/天
-              </div>
-              <div style="height: 4px; background: var(--ms-surface-subtle); border-radius: 2px; overflow: hidden; margin: 8px 0 6px 0;">
-                <div id="gatewayApiProgressBar" style="height: 100%; width: 100%; background: var(--ms-green); border-radius: 2px; transition: width 0.3s ease;"></div>
-              </div>
-              <div style="font-size: 11px; color: var(--ms-text-muted);" id="gatewayApiSubtext">6 个账号 × 1500次/天 · 官方每日自动刷新</div>
-            </div>
-
-            <!-- 3. Web 逆向反代通道 (不限次) -->
-            <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <span style="font-size: 11px; color: var(--ms-text-muted); display: flex; align-items: center; gap: 5px;">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                  Web 逆向反代通道 (Gemini Web)
-                </span>
-                <span id="gatewayWebProBadge" class="status-badge status-active" style="font-size: 10px;">● 不限次畅连</span>
-              </div>
-              <div style="font-size: 15px; font-weight: 700; color: var(--ms-text-high); font-family: var(--font-mono); letter-spacing: -0.01em;" id="gatewayWebQuotaVal">
-                无限调用 <span style="font-size: 12px; font-weight: 500; color: var(--ms-blue-luminous);">(无次数上限)</span>
-              </div>
-              <div style="height: 4px; background: var(--ms-surface-subtle); border-radius: 2px; overflow: hidden; margin: 8px 0 6px 0;">
-                <div style="height: 100%; width: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius: 2px;"></div>
-              </div>
-              <div style="font-size: 11px; color: var(--ms-text-muted);" id="gatewayWebSubtext">原生 Web 网页逆向 · 官方 0 频控兜底</div>
-            </div>
+            <button class="btn mini primary" onclick="triggerAddAccountAuto()">+ 接入新账号</button>
           </div>
 
-          <!-- 网关连通性快速单测 (Live Connectivity Test) -->
-          <div style="margin-top: 12px; background: var(--ms-surface-base); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-              <div style="font-size:12px; font-weight:600; color:var(--ms-text-high); display:flex; align-items:center; gap:6px;">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                <span>网关连通性快速单测 (Live Connectivity Test)</span>
-                <span class="status-badge status-active" style="font-size:10px;">● 秒级直连验证</span>
-              </div>
-              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <select id="quickTestModel" class="fluent-input" style="font-size:12px; padding:3px 8px; height:28px; background:var(--ms-surface-elevated); color:var(--ms-text-high); border:1px solid var(--ms-border-card); min-width: 230px;">
-                  <option value="gemini-3.8-flash" selected>gemini-3.8-flash (官网最新旗舰)</option>
-                  <option value="gemini-3.8-live-extended-thinking">gemini-3.8-live-extended-thinking (深度推理)</option>
-                  <option value="gemini-3.7-flash">gemini-3.7-flash (官网全能)</option>
-                  <option value="gemini-3.5-flash-thinking">gemini-3.5-flash-thinking (思考模型)</option>
-                  <option value="gemini-3.1-pro">gemini-3.1-pro (Pro 会员)</option>
-                  <option value="gemini-2.0-flash">gemini-2.0-flash (官方 API)</option>
-                  <option value="gemini-1.5-pro">gemini-1.5-pro (官方 API · 200万上下文)</option>
-                </select>
-
-                <select id="quickTestThinkLevel" class="fluent-input" style="font-size:12px; padding:3px 8px; height:28px; background:var(--ms-surface-elevated); color:var(--ms-text-high); border:1px solid var(--ms-border-card); width: 140px;">
-                  <option value="" selected>思考: 默认平衡</option>
-                  <option value="@think=0">深度推理 (think=0)</option>
-                  <option value="@think=1">深度思考 (think=1)</option>
-                  <option value="@think=2">快速思考 (think=2)</option>
-                  <option value="@think=4">极速低延迟 (think=4)</option>
-                </select>
-
-                <button class="fluent-btn mini primary" id="btnRunQuickTest" onclick="runGatewayQuickTest()" style="font-weight:600; height:28px; padding:0 12px; display:inline-flex; align-items:center; gap:5px;">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                  执行单测
-                </button>
-              </div>
-            </div>
-            <div id="quickTestOutput" style="display:none; margin-top:10px; background: rgba(0,0,0,0.35); border: 1px solid var(--ms-border-card); border-radius: 4px; padding: 10px 14px; font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); white-space: pre-wrap; line-height: 1.6; max-height: 160px; overflow-y: auto;"></div>
-          </div>
-        </section>
-
-        <!-- 官网动态模型与路由矩阵 (Dynamic Model Routing & Think Matrix) -->
-        <section class="fluent-card">
-          <div class="fluent-pivot-bar">
-            <div class="card-title-text">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              官网动态模型与路由矩阵 (Dynamic Model Routing & Think Matrix)
-            </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <input type="text" id="modelFilterInput" class="fluent-search" placeholder="搜索模型名称或特性..." oninput="renderGatewayModelTable()" style="width: 190px;">
-              <div class="fluent-pivot-tabs" id="modelCategoryTabs">
-                <button class="pivot-tab active" onclick="setModelCategoryFilter('all', this)">全部</button>
-                <button class="pivot-tab" onclick="setModelCategoryFilter('flagship', this)">旗舰推荐</button>
-                <button class="pivot-tab" onclick="setModelCategoryFilter('thinking', this)">深度思考</button>
-                <button class="pivot-tab" onclick="setModelCategoryFilter('pro', this)">Pro 满血</button>
-                <button class="pivot-tab" onclick="setModelCategoryFilter('api', this)">官方 API</button>
-                <button class="pivot-tab" onclick="setModelCategoryFilter('web', this)">Web 逆向</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="fluent-table-box" style="max-height: 380px; overflow-y: auto;">
-            <table>
+          <div class="pro-table-box">
+            <table style="table-layout: fixed; width: 100%;">
+              <colgroup>
+                <col style="width: 25%;">
+                <col style="width: 10%;">
+                <col style="width: 13%;">
+                <col style="width: 13%;">
+                <col style="width: 17%;">
+                <col style="width: 11%;">
+                <col style="width: 11%;">
+              </colgroup>
               <thead>
                 <tr>
-                  <th style="width: 230px;">模型调用标识 (Model ID)</th>
-                  <th style="width: 140px;">调度通道</th>
-                  <th style="width: 140px;">思考深度支持</th>
-                  <th>特性与适用场景</th>
-                  <th style="width: 90px;">状态</th>
-                  <th style="text-align: right; width: 140px;">快捷操作</th>
-                </tr>
-              </thead>
-              <tbody id="gatewayModelTableBody">
-                <tr><td colspan="6" style="text-align: center; color: var(--ms-text-muted); padding: 20px;">正在动态解析官方模型矩阵...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div> <!-- End of viewGateway -->
-
-      <!-- ======================================================== -->
-      <!-- VIEW 2: 账号集群 (Accounts) -->
-      <!-- ======================================================== -->
-      <div id="viewAccounts" style="display: none; flex-direction: column; gap: 16px;">
-        <!-- 状态与自动化条 -->
-        <section class="fluent-strip">
-          <div class="strip-cell">
-            <div class="strip-avatar-icon">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-            </div>
-            <div class="strip-body">
-              <div class="strip-heading">
-                <span id="activeEmailText">读取钥匙串凭据...</span>
-                <span class="status-badge status-active">当前挂载</span>
-              </div>
-              <div class="strip-subtext" id="activeNameText">macOS Keychain · gemini:antigravity</div>
-            </div>
-          </div>
-
-          <div class="strip-cell">
-            <div class="strip-avatar-icon">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            </div>
-            <div class="strip-body">
-              <div class="strip-heading">
-                <span>无感自动续期守护</span>
-                <span class="status-badge status-active">已保护</span>
-              </div>
-              <div class="strip-subtext">到期前 15 分钟自动换发，关机重启自动换新</div>
-            </div>
-          </div>
-
-          <div class="strip-cell" style="justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <div class="strip-avatar-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.1l4 4-4 4"></path><path d="M3 12.2v-2a4 4 0 0 1 4-4h14"></path><path d="M7 21.9l-4-4 4-4"></path><path d="M21 11.8v2a4 4 0 0 1-4 4H3"></path></svg>
-              </div>
-              <div class="strip-body">
-                <div class="strip-heading">额度见底自动切号</div>
-                <div class="strip-subtext">5h 额度 ≤2% 自动轮转最高小号</div>
-              </div>
-            </div>
-            <label class="fluent-switch">
-              <input type="checkbox" id="autoSwitchToggle" onchange="toggleAutoSwitch(this)" checked>
-              <span class="fluent-switch-track"></span>
-            </label>
-          </div>
-        </section>
-
-        <!-- 小号集群管理列表 -->
-        <section class="fluent-card">
-          <div class="card-title-bar">
-            <div class="card-title-text">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-              纳管小号集群与多源算力矩阵
-            </div>
-            <div class="card-caption">集成 GCP 云端配额、官方 AI Studio 1500次 Key 与 Web Pro 会话反代</div>
-          </div>
-
-          <div class="fluent-table-box">
-            <table>
-              <thead>
-                <tr>
-                  <th>账号</th>
-                  <th style="width: 80px;">状态</th>
-                  <th style="width: 125px;">Gemini 5h</th>
-                  <th style="width: 125px;">Gemini 周度</th>
-                  <th style="width: 155px;">官方 API 算力 (1,500次/天)</th>
-                  <th style="width: 135px;">Web 反代通道</th>
-                  <th style="text-align: right; width: 100px;">操作</th>
+                  <th>账号身份</th>
+                  <th>状态</th>
+                  <th>Gemini 5h</th>
+                  <th>周度配额</th>
+                  <th>官方 1500 API</th>
+                  <th>Web 通道</th>
+                  <th style="text-align: right;">操作</th>
                 </tr>
               </thead>
               <tbody id="poolTableBody">
-                <tr><td colspan="7" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">加载中...</td></tr>
+                <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">加载账号中...</td></tr>
               </tbody>
             </table>
           </div>
-        </section>
-      </div> <!-- End of viewAccounts -->
+        </div>
+      </div>
 
-      <!-- ======================================================== -->
-      <!-- VIEW 3: 消耗审计 (Audit) -->
-      <!-- ======================================================== -->
-      <div id="viewAudit" style="display: none; flex-direction: column; gap: 16px;">
-        <!-- 号池算力汇总仪表盘 (KPI Tiles) -->
-        <section class="fluent-card">
-          <div class="card-title-bar">
-            <div class="card-title-text">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-              号池算力汇总仪表盘
-            </div>
-            <div class="card-caption" id="dashSyncTime">最新探测: 刚刚</div>
+      <!-- 视图 3: 消耗审计 (Audit) -->
+      <div id="viewAudit" class="view-container">
+        <!-- 4 KPI 看板 -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+          <div class="pro-card" style="padding: 10px 12px;">
+            <div style="font-size: 11px; color: var(--text-muted);">5H 可用额度均值</div>
+            <div style="font-size: 18px; font-weight: 700; font-family: var(--font-mono); margin: 4px 0;" id="dash5hVal">--</div>
+            <div style="font-size: 10px; color: var(--text-mid);" id="dash5hSub">载入中...</div>
           </div>
-
-          <div class="kpi-grid">
-            <!-- 5h 总额度 -->
-            <div class="kpi-tile">
-              <div class="kpi-label">
-                <span>5H 可用额度均值</span>
-                <span class="status-badge status-active" id="dash5hTag">充足</span>
-              </div>
-              <div class="kpi-value">
-                <span id="dash5hVal">--</span>
-                <span class="kpi-unit">/ 100%</span>
-              </div>
-              <div class="kpi-track">
-                <div class="kpi-fill" id="dash5hBar" style="width: 0%;"></div>
-              </div>
-              <div class="kpi-desc" id="dash5hSub">载入中...</div>
-            </div>
-
-            <!-- 周度总额度 -->
-            <div class="kpi-tile">
-              <div class="kpi-label">
-                <span>周度可用总容量</span>
-                <span class="status-badge" style="background: var(--ms-green-bg); color: var(--ms-green);" id="dashWeeklyTag">健康</span>
-              </div>
-              <div class="kpi-value">
-                <span id="dashWeeklyVal">--</span>
-                <span class="kpi-unit" id="dashWeeklyMax">/ --%</span>
-              </div>
-              <div class="kpi-track">
-                <div class="kpi-fill" id="dashWeeklyBar" style="width: 0%;"></div>
-              </div>
-              <div class="kpi-desc" id="dashWeeklySub">载入中...</div>
-            </div>
-
-            <!-- 账号就绪度 -->
-            <div class="kpi-tile">
-              <div class="kpi-label">
-                <span>号池可用账号数</span>
-                <span class="status-badge status-active" id="dashAccountTag">就绪</span>
-              </div>
-              <div class="kpi-value">
-                <span id="dashAccountVal">-- / --</span>
-                <span class="kpi-unit">个正常</span>
-              </div>
-              <div class="kpi-track">
-                <div class="kpi-fill" id="dashAccountBar" style="width: 100%;"></div>
-              </div>
-              <div class="kpi-desc" id="dashAccountSub">载入中...</div>
-            </div>
-
-            <!-- 对话累计 Tokens -->
-            <div class="kpi-tile">
-              <div class="kpi-label">
-                <span>全局累计对话消耗</span>
-                <span class="status-badge" style="background: rgba(255,255,255,0.06); color: var(--ms-text-muted);">实时</span>
-              </div>
-              <div class="kpi-value">
-                <span id="dashTotalTokens" style="color: var(--ms-blue-luminous);">--</span>
-                <span class="kpi-unit">Tokens</span>
-              </div>
-              <div class="kpi-track">
-                <div class="kpi-fill" style="width: 100%; background: var(--ms-blue);"></div>
-              </div>
-              <div class="kpi-desc" id="dashTokenSub">载入中...</div>
-            </div>
+          <div class="pro-card" style="padding: 10px 12px;">
+            <div style="font-size: 11px; color: var(--text-muted);">周度可用总容量</div>
+            <div style="font-size: 18px; font-weight: 700; font-family: var(--font-mono); margin: 4px 0;" id="dashWeeklyVal">--</div>
+            <div style="font-size: 10px; color: var(--text-mid);" id="dashWeeklySub">载入中...</div>
           </div>
-        </section>
+          <div class="pro-card" style="padding: 10px 12px;">
+            <div style="font-size: 11px; color: var(--text-muted);">正常在列小号</div>
+            <div style="font-size: 18px; font-weight: 700; font-family: var(--font-mono); margin: 4px 0;" id="dashAccountVal">--</div>
+            <div style="font-size: 10px; color: var(--text-mid);" id="dashAccountSub">载入中...</div>
+          </div>
+          <div class="pro-card" style="padding: 10px 12px;">
+            <div style="font-size: 11px; color: var(--text-muted);">全局累计 Tokens</div>
+            <div style="font-size: 18px; font-weight: 700; font-family: var(--font-mono); color: var(--accent-blue-glow); margin: 4px 0;" id="dashTotalTokens">--</div>
+            <div style="font-size: 10px; color: var(--text-mid);" id="dashTokenSub">载入中...</div>
+          </div>
+        </div>
 
-        <!-- 单次对话消耗明细 -->
-        <section class="fluent-card">
-          <div class="fluent-pivot-bar">
-            <div class="card-title-text">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-              交互消耗审计日志
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 14px;">
-              <input type="text" id="searchInput" class="fluent-search" placeholder="搜索提问关键词..." oninput="renderTurnLog()">
-              <div class="fluent-pivot-tabs" id="filterBtnGroup">
-                <button class="pivot-tab active" onclick="setTimelineFilter('all', this)">全部</button>
-                <button class="pivot-tab" onclick="setTimelineFilter('today', this)">今天</button>
-                <button class="pivot-tab" onclick="setTimelineFilter('yesterday', this)">昨天</button>
-                <button class="pivot-tab" onclick="setTimelineFilter('7days', this)">最近 7 天</button>
+        <!-- 审计日志 -->
+        <div class="pro-card">
+          <div class="pro-card-header">
+            <div class="pro-card-title">交互消耗审计明细</div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <input type="text" id="searchInput" class="search-input" placeholder="搜索提问关键词..." oninput="renderTurnLog()">
+              <div style="display: flex; gap: 4px;" id="filterBtnGroup">
+                <button class="btn mini primary" onclick="setTimelineFilter('all', this)">全部</button>
+                <button class="btn mini" onclick="setTimelineFilter('today', this)">今天</button>
+                <button class="btn mini" onclick="setTimelineFilter('7days', this)">近7天</button>
               </div>
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-            <div class="kpi-tile" style="padding: 10px 14px;">
-              <span class="kpi-label">区间总消耗 (Total)</span>
-              <div class="kpi-value" style="font-size: 18px; color: var(--ms-blue-luminous);" id="filterTotalTokens">--</div>
-              <span class="kpi-desc" id="filterTokensBreakdown">输入 -- · 输出 --</span>
-            </div>
-            <div class="kpi-tile" style="padding: 10px 14px;">
-              <span class="kpi-label">交互总轮次</span>
-              <div class="kpi-value" style="font-size: 18px;" id="filterTotalTurns">--</div>
-              <span class="kpi-desc">User Inputs</span>
-            </div>
-            <div class="kpi-tile" style="padding: 10px 14px;">
-              <span class="kpi-label">单次平均消耗</span>
-              <div class="kpi-value" style="font-size: 18px;" id="filterAvgTokens">--</div>
-              <span class="kpi-desc" id="filterAvgBreakdown">均次输入 -- · 输出 --</span>
-            </div>
-          </div>
-
-          <div class="fluent-table-box">
-            <table>
+          <div class="pro-table-box" style="max-height: 460px;">
+            <table style="table-layout: fixed; width: 100%;">
+              <colgroup>
+                <col style="width: 12%;">
+                <col style="width: 38%;">
+                <col style="width: 8%;">
+                <col style="width: 14%;">
+                <col style="width: 13%;">
+                <col style="width: 15%;">
+              </colgroup>
               <thead>
                 <tr>
-                  <th style="width: 130px;">时间戳</th>
+                  <th>时间戳</th>
                   <th>用户指令 (Prompt)</th>
-                  <th style="width: 70px;">步骤</th>
-                  <th style="text-align: right; width: 140px;">输入 (Input / 上下文)</th>
-                  <th style="text-align: right; width: 100px;">输出 (Output)</th>
-                  <th style="text-align: right; width: 120px;">总计 (Total)</th>
+                  <th>步骤</th>
+                  <th style="text-align: right;">输入 (Input)</th>
+                  <th style="text-align: right;">输出 (Output)</th>
+                  <th style="text-align: right;">总计 (Total)</th>
                 </tr>
               </thead>
               <tbody id="turnTableBody">
-                <tr><td colspan="6" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">加载中...</td></tr>
+                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">加载审计日志中...</td></tr>
               </tbody>
             </table>
           </div>
-        </section>
-      </div> <!-- End of viewAudit -->
+        </div>
+      </div>
 
-      <!-- ======================================================== -->
-      <!-- VIEW 2: 📖 接口文档与客户端对接中心 (API Docs & Client Integrations) -->
-      <!-- ======================================================== -->
-      <div id="viewDocs" style="display: none; flex-direction: column; gap: 14px;">
-        <!-- 网关核心调用说明 -->
-        <section class="fluent-card" style="background: linear-gradient(135deg, rgba(0, 120, 212, 0.08), rgba(16, 185, 129, 0.05)); border: 1px solid rgba(0, 120, 212, 0.3);">
-          <div class="card-title-bar">
-            <div class="card-title-text" style="color: var(--ms-blue-luminous); font-size: 15px;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-              Antigravity 统一网关接入指南 (OpenAI 兼容 /v1)
+      <!-- 视图 4: 动态模型库 (Models) -->
+      <div id="viewModels" class="view-container">
+        <div class="pro-card">
+          <div class="pro-card-header">
+            <div class="pro-card-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              官网实时动态模型路由矩阵 (42 模型全量库)
             </div>
-            <span class="fluent-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
-              <span class="dot" style="background: #10b981;"></span> 网关端点: 127.0.0.1:3999
-            </span>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
-            <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
-              <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 4px;">接口 Base URL (填入任何客户端):</div>
-              <div style="display: flex; align-items: center; justify-content: space-between;">
-                <code style="font-family: var(--font-mono); font-size: 13px; color: var(--ms-blue-luminous); font-weight: 600;">http://localhost:3999/v1</code>
-                <button class="fluent-btn mini" onclick="copyText('http://localhost:3999/v1', this)">复制</button>
-              </div>
-            </div>
-
-            <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
-              <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 4px;">API Key (密码凭据):</div>
-              <div style="display: flex; align-items: center; justify-content: space-between;">
-                <code style="font-family: var(--font-mono); font-size: 13px; color: var(--ms-text-high);">任意字符 (如 sk-antigravity 或留空)</code>
-                <button class="fluent-btn mini" onclick="copyText('sk-antigravity', this)">复制</button>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="text" id="modelFilterInput" class="search-input" placeholder="搜索模型名称或特性..." oninput="renderGatewayModelTable()" style="width: 160px;">
+              <div style="display: flex; gap: 4px;" id="modelCategoryTabs">
+                <button class="btn mini primary" onclick="setModelCategoryFilter('all', this)">全部</button>
+                <button class="btn mini" onclick="setModelCategoryFilter('flagship', this)">旗舰</button>
+                <button class="btn mini" onclick="setModelCategoryFilter('thinking', this)">深度思考</button>
+                <button class="btn mini" onclick="setModelCategoryFilter('pro', this)">Pro</button>
               </div>
             </div>
           </div>
-        </section>
 
-        <!-- 思考等级与调度说明 -->
-        <section class="fluent-card">
-          <div class="card-title-bar">
-            <div class="card-title-text">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              官网模型与思考深度等级 (@think 参数规范)
-            </div>
-            <div class="card-caption">支持动态传入任一官方 Gemini 模型与指定思考深度</div>
-          </div>
-
-          <div style="font-size: 12px; color: var(--ms-text-base); line-height: 1.7; margin-bottom: 12px;">
-            系统完全直连 Google 官方实时动态模型库，所有 <code>gemini-3.8-flash</code>、<code>gemini-3.7-flash</code> 等最新模型均自动支持。可通过在模型名后追加 <code>@think=0~4</code> 精细控制思考等级：
-          </div>
-
-          <div class="fluent-table-box">
+          <div class="pro-table-box" style="max-height: 520px;">
             <table>
               <thead>
                 <tr>
-                  <th style="width: 200px;">模型调用标识</th>
-                  <th style="width: 110px;">思考等级</th>
-                  <th>特性与适用场景</th>
-                  <th style="width: 90px; text-align: right;">快速复制</th>
+                  <th style="width: 220px;">模型调用标识 (Model ID)</th>
+                  <th style="width: 120px;">调度通道</th>
+                  <th style="width: 120px;">思考等级</th>
+                  <th>特性与场景说明</th>
+                  <th style="width: 70px;">状态</th>
+                  <th style="text-align: right; width: 110px;">快捷操作</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td><code style="color:var(--ms-blue-luminous); font-weight:600;">gemini-3.8-flash</code></td>
-                  <td><span class="status-badge" style="background:rgba(16,185,129,0.12); color:#10b981;">默认平衡</span></td>
-                  <td>Google 官网最新旗舰，兼顾极速响应与日常综合任务</td>
-                  <td style="text-align: right;"><button class="fluent-btn mini" onclick="copyText('gemini-3.8-flash', this)">复制</button></td>
-                </tr>
-                <tr>
-                  <td><code style="color:var(--ms-blue-luminous); font-weight:600;">gemini-3.8-flash@think=0</code></td>
-                  <td><span class="status-badge" style="background:rgba(245,158,11,0.15); color:#f59e0b;">深度推理 (Max)</span></td>
-                  <td>触发最深思维链 (Deep Thinking)，适合复杂数学、算法规划与高难代码生成</td>
-                  <td style="text-align: right;"><button class="fluent-btn mini" onclick="copyText('gemini-3.8-flash@think=0', this)">复制</button></td>
-                </tr>
-                <tr>
-                  <td><code style="color:var(--ms-blue-luminous); font-weight:600;">gemini-3.8-flash@think=4</code></td>
-                  <td><span class="status-badge" style="background:rgba(0,120,212,0.15); color:var(--ms-blue-luminous);">极速低延迟</span></td>
-                  <td>关闭显式深度思考链，超低首字延迟直出，适合对话与单行补全</td>
-                  <td style="text-align: right;"><button class="fluent-btn mini" onclick="copyText('gemini-3.8-flash@think=4', this)">复制</button></td>
-                </tr>
-                <tr>
-                  <td><code style="color:var(--ms-blue-luminous); font-weight:600;">gemini-3.8-live-extended-thinking</code></td>
-                  <td><span class="status-badge" style="background:rgba(245,158,11,0.15); color:#f59e0b;">原生扩展思考</span></td>
-                  <td>官方原生超长思维链模型，长篇深度论证与多文件工程分析</td>
-                  <td style="text-align: right;"><button class="fluent-btn mini" onclick="copyText('gemini-3.8-live-extended-thinking', this)">复制</button></td>
-                </tr>
-                <tr>
-                  <td><code style="color:var(--ms-blue-luminous); font-weight:600;">gemini-3.1-pro</code></td>
-                  <td><span class="status-badge" style="background:rgba(245,158,11,0.15); color:#f59e0b;">Pro 满血</span></td>
-                  <td>自动调度号池中已开通 Google One AI Premium (Gemini Advanced) 会员的账号</td>
-                  <td style="text-align: right;"><button class="fluent-btn mini" onclick="copyText('gemini-3.1-pro', this)">复制</button></td>
-                </tr>
+              <tbody id="gatewayModelTableBody">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">加载模型矩阵中...</td></tr>
               </tbody>
             </table>
           </div>
-        </section>
+        </div>
+      </div>
 
-        <!-- 常用客户端配置指引 -->
-        <section class="fluent-card">
-          <div class="card-title-bar">
-            <div class="card-title-text">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 18l6-6-6-6"></path><path d="M8 6l-6 6 6 6"></path></svg>
-              一键接入主流客户端代码示例
-            </div>
-            <div class="card-caption">点击对应标签查看配置步骤</div>
+      <!-- 视图 5: 接入指引 (Docs) -->
+      <div id="viewDocs" class="view-container">
+        <div class="pro-card">
+          <div class="pro-card-title" style="color: var(--accent-blue-glow);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            主流客户端极速配置指南 (OpenAI 兼容 /v1)
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 8px;" id="docsClientTabs">
+            <button class="btn mini primary" onclick="switchClientDoc('cursor', this)">Cursor / VS Code</button>
+            <button class="btn mini" onclick="switchClientDoc('cline', this)">Cline / Roo Code</button>
+            <button class="btn mini" onclick="switchClientDoc('chatbox', this)">ChatBox</button>
+            <button class="btn mini" onclick="switchClientDoc('python', this)">Python SDK</button>
           </div>
 
-          <div class="fluent-pivot-tabs" id="docsClientTabs" style="margin-bottom: 12px;">
-            <button class="pivot-tab active" onclick="switchClientDoc('cursor', this)">Cursor / VS Code</button>
-            <button class="pivot-tab" onclick="switchClientDoc('cline', this)">Cline / Roo Code</button>
-            <button class="pivot-tab" onclick="switchClientDoc('chatbox', this)">ChatBox / NextChat</button>
-            <button class="pivot-tab" onclick="switchClientDoc('python', this)">Python SDK</button>
-            <button class="pivot-tab" onclick="switchClientDoc('curl', this)">cURL 终端</button>
-          </div>
-
-          <div id="docCursor" class="client-doc-pane" style="display: block;">
-            <div style="font-size: 12px; color: var(--ms-text-base); margin-bottom: 8px;">
-              <b>Cursor 配置步骤：</b> 打开 Cursor Settings → <b>Models</b> → 开启 <b>OpenAI API Key</b>，输入 <code>sk-antigravity</code>。点击 <b>Override OpenAI Base URL</b>，填入 <code>http://localhost:3999/v1</code>。然后在下方点击 <b>+ Add model</b>，分别添加 <code>gemini-3.8-flash</code> 与 <code>gemini-3.8-flash@think=0</code> 即可。
+          <div id="docCursor" class="client-doc-pane" style="margin-top: 10px;">
+            <div style="font-size: 12px; color: var(--text-mid); margin-bottom: 8px;">
+              <b>Cursor 设置步骤：</b> 打开 Cursor Settings → Models → 开启 <b>OpenAI API Key</b>，输入 <code>sk-antigravity</code>。点击 <b>Override OpenAI Base URL</b>，填入 <code>http://localhost:3999/v1</code>。下方添加 <code>gemini-3.8-flash</code> 即可使用。
             </div>
-            <pre style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); overflow-x: auto;">
-Base URL: http://localhost:3999/v1
+            <pre style="background: #090a0d; padding: 12px; border-radius: 6px; border: 1px solid var(--border-card); font-family: var(--font-mono); font-size: 11px; color: #a78bfa; overflow-x: auto;">Base URL: http://localhost:3999/v1
 API Key:  sk-antigravity
-Model:    gemini-3.8-flash  (或 gemini-3.8-flash@think=0)</pre>
+Model:    gemini-3.8-flash (或 gemini-3.8-flash@think=0)</pre>
           </div>
 
-          <div id="docCline" class="client-doc-pane" style="display: none;">
-            <div style="font-size: 12px; color: var(--ms-text-base); margin-bottom: 8px;">
-              <b>Cline / Roo Code 配置步骤：</b> 在 API Provider 中选择 <b>OpenAI Compatible</b>。Base URL 输入 <code>http://localhost:3999/v1</code>，API Key 输入 <code>sk-antigravity</code>，Model ID 填写 <code>gemini-3.8-flash</code>。
+          <div id="docCline" class="client-doc-pane" style="display: none; margin-top: 10px;">
+            <div style="font-size: 12px; color: var(--text-mid); margin-bottom: 8px;">
+              <b>Cline / Roo Code 设置：</b> API Provider 选择 <b>OpenAI Compatible</b>，Base URL 填写 <code>http://localhost:3999/v1</code>，API Key 输入 <code>sk-antigravity</code>。
             </div>
-            <pre style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); overflow-x: auto;">
-Provider: OpenAI Compatible
-Base URL: http://localhost:3999/v1
+            <pre style="background: #090a0d; padding: 12px; border-radius: 6px; border: 1px solid var(--border-card); font-family: var(--font-mono); font-size: 11px; color: #a78bfa; overflow-x: auto;">Base URL: http://localhost:3999/v1
 API Key:  sk-antigravity
 Model ID: gemini-3.8-flash</pre>
           </div>
 
-          <div id="docChatbox" class="client-doc-pane" style="display: none;">
-            <div style="font-size: 12px; color: var(--ms-text-base); margin-bottom: 8px;">
-              <b>ChatBox / NextChat 配置：</b> 模型提供方选择 <b>OpenAI API</b>，API 主机 (Host) 填入 <code>http://localhost:3999</code> (NextChat) 或 <code>http://localhost:3999/v1</code> (ChatBox)。自定义模型输入 <code>gemini-3.8-flash</code>。
-            </div>
-            <pre style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); overflow-x: auto;">
-API Host: http://localhost:3999/v1
-API Key:  sk-antigravity
-Model:    gemini-3.8-flash</pre>
+          <div id="docChatbox" class="client-doc-pane" style="display: none; margin-top: 10px;">
+            <pre style="background: #090a0d; padding: 12px; border-radius: 6px; border: 1px solid var(--border-card); font-family: var(--font-mono); font-size: 11px; color: #a78bfa; overflow-x: auto;">API 模式:   OpenAI API 兼容
+API 域名:   http://localhost:3999
+API Key:    sk-antigravity
+模型名称:   gemini-3.8-flash</pre>
           </div>
 
-          <div id="docPython" class="client-doc-pane" style="display: none;">
-            <pre style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); overflow-x: auto;">
-from openai import OpenAI
+          <div id="docPython" class="client-doc-pane" style="display: none; margin-top: 10px;">
+            <pre style="background: #090a0d; padding: 12px; border-radius: 6px; border: 1px solid var(--border-card); font-family: var(--font-mono); font-size: 11px; color: #a78bfa; overflow-x: auto;">from openai import OpenAI
 
 client = OpenAI(
     base_url="http://localhost:3999/v1",
     api_key="sk-antigravity"
 )
 
-response = client.chat.completions.create(
-    model="gemini-3.8-flash@think=0",  # 支持 @think=0~4 调节思考等级
-    messages=[{"role": "user", "content": "9.11 和 9.9 谁大？请推理"}]
+resp = client.chat.completions.create(
+    model="gemini-3.8-flash",
+    messages=[{"role": "user", "content": "你好，测试网关连通性"}]
 )
-print(response.choices[0].message.content)</pre>
-          </div>
-
-          <div id="docCurl" class="client-doc-pane" style="display: none;">
-            <pre style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); overflow-x: auto;">
-curl -X POST http://localhost:3999/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-antigravity" \
-  -d '{
-    "model": "gemini-3.8-flash",
-    "messages": [{"role": "user", "content": "你好！"}]
-  }'</pre>
-          </div>
-        </section>
-      </div> <!-- End of viewDocs -->
-
-    </main>
-  </div>
-
-  <script>
-    function handleHeaderMouseDown(e) {
-      // 如果点击的是按钮或按钮内部的元素，不触发拖拽
-      if (e.target.closest('button') || e.target.closest('.fluent-badge')) {
-        return;
-      }
-      try {
-        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dragWindow) {
-          window.webkit.messageHandlers.dragWindow.postMessage('drag');
-        }
-      } catch (err) {
-        console.warn('dragWindow message handler error:', err);
-      }
-    }
-
-    // 检测当前环境（浏览器 vs 独立应用），微调布局
-    if (!window.webkit || !window.webkit.messageHandlers || !window.webkit.messageHandlers.dragWindow) {
-      document.body.classList.add('in-browser');
-    }
-
-    // 跨环境 API 请求路由（支持 file:// 本地直开与 http:// 远端访问）
-    const API_BASE = window.location.protocol.startsWith('http') ? '' : 'http://localhost:3999';
-    const api = path => (API_BASE ? API_BASE + path : path);
-
-    function openExternalUrl(url, e) {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      if (!url) return;
-
-      // 1. 原生 macOS Cocoa 宿主通道 (NSWorkspace.shared.open，100% 唤起默认浏览器)
-      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.openExternal) {
-        try {
-          window.webkit.messageHandlers.openExternal.postMessage(url);
-          return;
-        } catch (err) {
-          console.warn('Native openExternal message handler error:', err);
-        }
-      }
-
-      // 2. 本地 Node 守护进程操作系统指令
-      fetch(api('/api/open-url'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      }).catch(err => console.error('打开外部链接失败:', err));
-
-      // 3. 浏览器窗口弹出兜底
-      try {
-        window.open(url, '_blank');
-      } catch (err) {}
-    }
-
-    function showNotice(text, isSuccess = false, authUrl = null) {
-      const box = document.getElementById('noticeBox');
-      const txt = document.getElementById('noticeText');
-      const actions = document.getElementById('noticeActions');
-      box.className = 'fluent-infobar ' + (isSuccess ? 'success' : '');
-      txt.textContent = text;
-      actions.innerHTML = '';
-
-      if (authUrl) {
-        const a = document.createElement('a');
-        a.href = authUrl;
-        a.target = '_blank';
-        a.className = 'fluent-btn primary';
-        a.textContent = '点此前往 Google 授权页面 →';
-        a.onclick = (e) => openExternalUrl(authUrl, e);
-        actions.appendChild(a);
-      }
-
-      box.style.display = 'flex';
-    }
-
-    async function toggleAutoSwitch(checkbox) {
-      try {
-        const res = await fetch(api('/api/toggle-auto-switch'), { method: 'POST' });
-        const data = await res.json();
-        checkbox.checked = data.autoSwitch;
-        showNotice(data.autoSwitch ? '已启用「额度见底自动切号」' : '已停用「额度见底自动切号」', true);
-      } catch (e) {
-        showNotice('设置更新失败: ' + e.message);
-      }
-    }
-
-    async function loadData(retryCount = 0) {
-      try {
-        const res = await fetch(api('/api/status'));
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        renderActiveBar(data.currentSystemUser);
-        renderTopDashboard(data);
-        renderPool(data.pool);
-        if (typeof data.autoSwitch !== 'undefined') {
-          const t = document.getElementById('autoSwitchToggle');
-          if (t) t.checked = data.autoSwitch;
-        }
-        rawTurnsList = data.dialogTurns || [];
-        renderTurnLog();
-        const badge = document.getElementById('coreStatusBadge');
-        if (badge) {
-          badge.style.background = '';
-          badge.style.color = '';
-          badge.innerHTML = '<span class="dot"></span> 正常运行';
-        }
-      } catch (e) {
-        const badge = document.getElementById('coreStatusBadge');
-        if (badge) {
-          badge.style.background = 'rgba(245, 158, 11, 0.15)';
-          badge.style.color = '#f59e0b';
-          badge.innerHTML = '<span class="dot" style="background:#f59e0b; animation: pulse 1s infinite;"></span> 核心连接中...';
-        }
-        setTimeout(() => loadData(retryCount + 1), Math.min(600, 200 * Math.pow(1.2, retryCount)));
-      }
-    }
-
-    function renderActiveBar(user) {
-      if (!user) {
-        document.getElementById('activeEmailText').textContent = '未挂载有效凭据';
-        document.getElementById('activeNameText').textContent = '系统钥匙串中暂无有效 Antigravity 登录';
-        return;
-      }
-      document.getElementById('activeEmailText').textContent = user.email;
-      document.getElementById('activeNameText').textContent = (user.name || '已授权用户') + ' · macOS Keychain gemini:antigravity';
-    }
-
-    function renderTopDashboard(data) {
-      const accounts = Array.isArray(data.pool?.accounts) ? data.pool.accounts : Object.values(data.pool?.accounts || {});
-      const count = accounts.length;
-
-      document.getElementById('dashSyncTime').textContent = '最新探测: ' + new Date().toLocaleTimeString();
-
-      let sum5h = 0;
-      let sumWeekly = 0;
-      let valid5hCount = 0;
-      let validWeeklyCount = 0;
-      let readyAccounts = 0;
-
-      accounts.forEach(acc => {
-        const q = acc.quota;
-        if (q?.gemini_5h && typeof q.gemini_5h.remainingFraction === 'number') {
-          sum5h += q.gemini_5h.remainingFraction;
-          valid5hCount++;
-          if (q.gemini_5h.remainingFraction > 0.05) readyAccounts++;
-        }
-        if (q?.gemini_weekly && typeof q.gemini_weekly.remainingFraction === 'number') {
-          sumWeekly += q.gemini_weekly.remainingFraction;
-          validWeeklyCount++;
-        }
-      });
-
-      // 1. 5H 额度聚合
-      const avg5h = valid5hCount > 0 ? (sum5h / valid5hCount) * 100 : 0;
-      const avg5hFixed = avg5h.toFixed(1);
-      document.getElementById('dash5hVal').textContent = avg5hFixed + '%';
-      document.getElementById('dash5hBar').style.width = Math.min(100, Math.max(0, avg5h)) + '%';
-      if (avg5h < 20) {
-        document.getElementById('dash5hBar').style.background = 'var(--ms-red)';
-        document.getElementById('dash5hTag').textContent = '偏低';
-        document.getElementById('dash5hTag').style.background = 'var(--ms-red-bg)';
-        document.getElementById('dash5hTag').style.color = 'var(--ms-red)';
-      } else {
-        document.getElementById('dash5hBar').style.background = 'var(--ms-green)';
-        document.getElementById('dash5hTag').textContent = '充足';
-        document.getElementById('dash5hTag').style.background = 'var(--ms-green-bg)';
-        document.getElementById('dash5hTag').style.color = 'var(--ms-green)';
-      }
-      document.getElementById('dash5hSub').textContent = count + ' 个纳管小号 · ' + readyAccounts + ' 个额度可用';
-
-      // 2. 周度额度聚合
-      const totalCapacityPct = (sumWeekly * 100).toFixed(1);
-      const maxWeeklyCapacity = count * 100;
-      const avgWeekly = validWeeklyCount > 0 ? (sumWeekly / validWeeklyCount) * 100 : 0;
-      document.getElementById('dashWeeklyVal').textContent = avgWeekly.toFixed(1) + '%';
-      document.getElementById('dashWeeklyMax').textContent = `(总容量 ${totalCapacityPct}% / ${maxWeeklyCapacity}%)`;
-      document.getElementById('dashWeeklyBar').style.width = Math.min(100, Math.max(0, avgWeekly)) + '%';
-      document.getElementById('dashWeeklySub').textContent = '周配额充足，支持长时间任务自动轮转接力';
-
-      // 3. 账号集群
-      document.getElementById('dashAccountVal').textContent = count + ' / ' + count;
-      document.getElementById('dashAccountSub').textContent = '当前激活: ' + (data.pool?.active || '未指定');
-
-      // 4. 对话消耗 Tokens
-      let totalTokens = 0;
-      let totalInputTokens = 0;
-      let totalOutputTokens = 0;
-      (data.dialogTurns || []).forEach(t => {
-        totalTokens += t.estTokens || 0;
-        totalInputTokens += t.inputTokens || 0;
-        totalOutputTokens += t.outputTokens || 0;
-      });
-      document.getElementById('dashTotalTokens').textContent = totalTokens.toLocaleString();
-      const turnsCount = (data.dialogTurns || []).length;
-      const ctxStr = data.sessionStats?.currentContextTokens ? ` · 当前上下文深度 ~${data.sessionStats.currentContextTokens}` : '';
-      document.getElementById('dashTokenSub').textContent = `${turnsCount} 轮对话交互${ctxStr} · 累计输入 ~${totalInputTokens.toLocaleString()}`;
-
-      // 5. 聚合网关看板数据同步
-      if (data.gateway) {
-        const gw = data.gateway;
-        // 官方 API 算力池展示
-        const capEl = document.getElementById('gatewayApiCapacityVal');
-        if (capEl) {
-          capEl.innerHTML = `剩余 <b>${(gw.totalRemaining || 0).toLocaleString()}</b> / ${(gw.totalCapacity || 0).toLocaleString()} 次/天`;
-        }
-        const apiBar = document.getElementById('gatewayApiProgressBar');
-        if (apiBar) {
-          const p = Math.min(100, Math.max(0, parseFloat(gw.percentRemaining || 100)));
-          apiBar.style.width = p + '%';
-          apiBar.style.background = p < 20 ? 'var(--ms-red)' : 'var(--ms-green)';
-        }
-        const apiBadge = document.getElementById('gatewayApiPercentBadge');
-        if (apiBadge) {
-          const p = parseFloat(gw.percentRemaining || 100);
-          apiBadge.textContent = p + '% ' + (p < 20 ? '告急' : '充足');
-          apiBadge.className = 'status-badge ' + (p < 20 ? 'subtle-danger' : 'status-active');
-        }
-        const apiSub = document.getElementById('gatewayApiSubtext');
-        if (apiSub) {
-          const keyNote = gw.boundKeysCount > 0 ? ` · ${gw.boundKeysCount} 个专属 Key` : '';
-          apiSub.textContent = `${gw.accountsCount || 0} 个账号 × 1500次/天${keyNote} · 官方每日自动刷新`;
-        }
-
-        // Web 反代通道展示
-        const webVal = document.getElementById('gatewayWebQuotaVal');
-        if (webVal) {
-          if (gw.hasWebPro) {
-            webVal.innerHTML = '无限调用 <span style="font-size: 12px; font-weight: 500; color: #f59e0b;">(Pro 会员满血)</span>';
-          } else {
-            webVal.innerHTML = '无限调用 <span style="font-size: 12px; font-weight: 500; color: var(--ms-blue-luminous);">(无次数上限)</span>';
-          }
-        }
-        const webBadge = document.getElementById('gatewayWebProBadge');
-        if (webBadge) {
-          if (gw.hasWebPro) {
-            webBadge.innerHTML = 'Pro 满血就绪';
-            webBadge.style.background = 'rgba(245, 158, 11, 0.15)';
-            webBadge.style.color = '#f59e0b';
-          } else {
-            webBadge.innerHTML = '● 不限次畅连';
-            webBadge.style.background = 'rgba(16, 185, 129, 0.15)';
-            webBadge.style.color = '#10b981';
-          }
-        }
-
-        cachedGatewayModels = gw.models || [];
-        const modelCountEl = document.getElementById('gatewayDynamicModelsVal');
-        if (modelCountEl && cachedGatewayModels.length > 0) {
-          modelCountEl.textContent = `● 已实时动态同步 ${cachedGatewayModels.length} 个官网模型 · 端口 3999`;
-        }
-        renderGatewayModelTable();
-        // 动态同步更新极速单测下拉列表中的官方模型
-        const selectEl = document.getElementById('quickTestModel');
-        if (selectEl && cachedGatewayModels.length > 0) {
-          const currentVal = selectEl.value;
-          const topPriority = ['gemini-3.8-flash', 'gemini-3.8-live-extended-thinking', 'gemini-3.7-flash', 'gemini-3.5-flash-thinking', 'gemini-3.1-pro', 'gemini-2.0-flash', 'gemini-1.5-pro'];
-          const sorted = [...cachedGatewayModels].sort((a, b) => {
-            const idxA = topPriority.indexOf(a.id);
-            const idxB = topPriority.indexOf(b.id);
-            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-            if (idxA !== -1) return -1;
-            if (idxB !== -1) return 1;
-            return a.id.localeCompare(b.id);
-          });
-          selectEl.innerHTML = sorted.slice(0, 30).map(m => {
-            const isSel = (currentVal === m.id) || (!currentVal && m.id === 'gemini-3.8-flash');
-            let badge = '';
-            if (m.id === 'gemini-3.8-flash') badge = ' (最新旗舰)';
-            else if (m.id.includes('thinking') || m.id.includes('extended')) badge = ' (深度推理)';
-            else if (m.id.includes('pro')) badge = ' (Pro)';
-            return `<option value="${m.id}" ${isSel ? 'selected' : ''}>${m.id}${badge}</option>`;
-          }).join('');
-        }
-      }
-    }
-
-    function buildQuotaCell(bucket) {
-      if (!bucket || typeof bucket.remainingFraction !== 'number') {
-        return '<span class="tabular" style="color: var(--ms-text-muted); font-size: 11px;">未获取</span>';
-      }
-      const pct = Math.round(bucket.remainingFraction * 1000) / 10;
-      let fillClass = '';
-      if (pct < 20) fillClass = 'danger';
-      else if (pct < 50) fillClass = 'warn';
-
-      let resetStr = '';
-      if (bucket.resetTime) {
-        const d = new Date(bucket.resetTime);
-        resetStr = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0') + ' 重置';
-      }
-
-      return `
-        <div class="quota-cell">
-          <div class="quota-cell-head">
-            <span style="font-weight: 600; color: ${pct < 20 ? 'var(--ms-red)' : 'var(--ms-text-high)'};">${pct}%</span>
-            <span class="quota-cell-reset">${resetStr}</span>
-          </div>
-          <div class="quota-cell-track">
-            <div class="quota-cell-fill ${fillClass}" style="width: ${pct}%;"></div>
+print(resp.choices[0].message.content)</pre>
           </div>
         </div>
-      `;
-    }
+      </div>
+    </main>
 
-    function renderPool(pool) {
-      const tbody = document.getElementById('poolTableBody');
-      const accounts = Array.isArray(pool?.accounts) ? pool.accounts : Object.values(pool?.accounts || {});
-      const activeEmail = pool?.active;
+    <!-- 3. 右侧常驻检查器 (Inspector Panel, 280px) -->
+    <aside class="app-inspector">
+      <!-- A. 当前挂载主凭据 -->
+      <div class="pro-card" style="padding: 12px;">
+        <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+          <span>当前挂载主凭据</span>
+          <span class="badge blue">macOS Keychain</span>
+        </div>
+        <div style="font-size: 13px; font-weight: 600; color: var(--text-high); word-break: break-all;" id="activeEmailText">
+          读取中...
+        </div>
+        <div style="font-size: 11px; color: var(--text-mid); display: flex; align-items: center; gap: 4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>自动续期: 剩余充足</span>
+        </div>
+        <div style="display: flex; gap: 6px; margin-top: 4px;">
+          <button class="btn mini" onclick="triggerAutoAuth(currentActiveEmail)" style="flex: 1;">重新提取凭据</button>
+          <button class="btn mini" onclick="switchSidebarView('accounts')" style="flex: 1;">切换小号</button>
+        </div>
+      </div>
 
-      if (accounts.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="color: var(--ms-text-muted); text-align: center; padding: 28px;">小号池暂无账号。请点击右上角【+ 添加小号】。</td></tr>';
-        return;
-      }
+      <!-- B. 网关极速接入卡片 -->
+      <div class="pro-card" style="padding: 12px;">
+        <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+          <span>网关端点 (Base URL)</span>
+          <span class="badge green">● 端口 3999</span>
+        </div>
+        <div style="background: var(--surface-subtle); padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border-card); display: flex; align-items: center; justify-content: space-between;">
+          <code style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-blue-glow);" id="gatewayBaseUrlText">http://localhost:3999/v1</code>
+          <button class="btn mini" onclick="copyText('http://localhost:3999/v1', this)">复制</button>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+          API Key: <code style="font-family: var(--font-mono); color: var(--text-mid);">sk-antigravity</code>
+        </div>
+        <button class="btn mini primary" onclick="copyCursorConfig(this)" style="margin-top: 4px; width: 100%; justify-content: center;">
+          一键复制 Cursor 配置片段
+        </button>
+      </div>
 
-      let html = '';
-      accounts.forEach(acc => {
-        const isActive = acc.email === activeEmail;
-        const q = acc.quota;
-
-        // 官方 API 算力 (AI Studio) 列
-        let aiStudioCol = '';
-        const limit = acc.ai_studio?.daily_limit || 1500;
-        const used = acc.ai_studio?.used_today || 0;
-        const remaining = Math.max(0, limit - used);
-        const hasKey = !!acc.ai_studio?.api_key;
-        const pct = Math.min(100, Math.max(0, Math.round((remaining / limit) * 100)));
-
-        aiStudioCol = `
-          <div style="display: flex; flex-direction: column; gap: 3px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-              <span style="font-family: var(--font-mono); font-weight: 600; color: var(--ms-text-high);">剩余 ${remaining.toLocaleString()}</span>
-              <span style="color: var(--ms-text-muted); font-size: 10px;">/ ${limit}次</span>
-            </div>
-            <div style="height: 3px; background: var(--ms-surface-subtle); border-radius: 2px; overflow: hidden;">
-              <div style="height: 100%; width: ${pct}%; background: ${remaining < 200 ? 'var(--ms-red)' : 'var(--ms-green)'};"></div>
-            </div>
-            <div style="font-size: 10px; color: ${hasKey ? 'var(--ms-blue-luminous)' : 'var(--ms-text-muted)'}; display: flex; align-items: center; gap: 4px;">
-              ${hasKey ? '<span class="dot" style="background:var(--ms-blue-luminous); width:5px; height:5px;"></span> 专属 Key 激活' : '<span class="dot" style="background:#10b981; width:5px; height:5px;"></span> 1,500次/天可用'}
-            </div>
+      <!-- C. 号池健康雷达 -->
+      <div class="pro-card" style="padding: 12px;">
+        <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+          <span>号池健康雷达</span>
+          <span class="badge green" id="radarHealthBadge">健康</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px; font-size: 11px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-mid);">可用账号数:</span>
+            <span style="font-family: var(--font-mono); font-weight: 600;" id="radarAccountsText">6 / 6 正常</span>
           </div>
-        `;
-
-        // Web 反代通道 列
-        let webAuthCol = '';
-        const isPro = !!(acc.web_auth?.cookie && acc.web_auth?.is_pro);
-        webAuthCol = `
-          <div style="display: flex; flex-direction: column; gap: 3px;">
-            <div style="font-size: 11px; font-weight: 600; color: ${isPro ? '#f59e0b' : '#10b981'};">
-              ${isPro ? 'Pro 会员 (无限次)' : '无限次 (已就绪)'}
-            </div>
-            <div style="font-size: 10px; color: var(--ms-text-muted);">
-              ${isPro ? '享 200万超大上下文' : '原生网页会话反代'}
-            </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-mid);">官方 1500 API 池:</span>
+            <span style="font-family: var(--font-mono); color: var(--accent-green);" id="radarApiCapacityText">9,000 次/天</span>
           </div>
-        `;
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-mid);">Web 反代通道:</span>
+            <span style="font-family: var(--font-mono); color: var(--accent-blue-glow);">不限次畅连</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
 
-        html += '<tr>';
-        html += '  <td>';
-        html += '    <div style="display: flex; align-items: center; gap: 10px;">';
-        if (acc.picture) {
-          html += '      <img src="' + acc.picture + '" style="width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--ms-border-card);">';
-        } else {
-          html += '      <div style="width: 26px; height: 26px; border-radius: 50%; background: var(--ms-surface-subtle); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight: 600;">' + acc.email[0].toUpperCase() + '</div>';
-        }
-        html += '      <div>';
-        html += '        <div style="font-weight: 500; font-size: 13px;">' + (acc.name || acc.email) + '</div>';
-        html += '        <div class="tabular" style="color: var(--ms-text-muted); font-size: 11px;">' + acc.email + '</div>';
-        html += '      </div>';
-        html += '    </div>';
-        html += '  </td>';
-        html += '  <td>';
-        if (isActive) {
-          html += '<span class="status-badge status-active">挂载中</span>';
-        } else if (q?.status === 'ERROR' && q?.validationUrl) {
-          const safeUrl = (q.validationUrl || '').replace(/"/g, '&quot;');
-          html += '<a href="' + safeUrl + '" target="_blank" onclick="openExternalUrl(\'' + encodeURI(q.validationUrl) + '\', event)" class="status-badge" style="background: var(--ms-amber-bg); color: var(--ms-amber); text-decoration: none; border: 1px solid rgba(245,158,11,0.3); cursor: pointer;" title="Google要求验证此账号">需验证 ↗</a>';
-        } else if (q?.status === 'ERROR') {
-          html += '<span class="status-badge" style="background: var(--ms-red-bg); color: var(--ms-red);" title="' + (q.message || '') + '">异常</span>';
-        } else {
-          html += '<span class="status-badge status-standby">待命中</span>';
-        }
-        html += '  </td>';
-        
-        if (q?.status === 'ERROR' && q?.validationUrl) {
-          const safeUrl = (q.validationUrl || '').replace(/"/g, '&quot;');
-          html += '<td colspan="2" style="color: var(--ms-amber); font-size: 11px;">';
-          html += '  <span>Google 提示需点击验证: </span>';
-          html += '  <a href="' + safeUrl + '" target="_blank" onclick="openExternalUrl(\'' + encodeURI(q.validationUrl) + '\', event)" style="color: var(--ms-blue-luminous); text-decoration: underline; font-weight: 500; cursor: pointer;">点此完成 Google 账号安全验证 →</a>';
-          html += '</td>';
-        } else if (q?.status === 'ERROR') {
-          html += '<td colspan="2" style="color: var(--ms-red); font-size: 11px;">' + (q.message || '获取配额失败') + '</td>';
-        } else {
-          html += '  <td>' + buildQuotaCell(q?.gemini_5h) + '</td>';
-          html += '  <td>' + buildQuotaCell(q?.gemini_weekly) + '</td>';
-        }
+<!-- Modal 1: 绑定 AI Key -->
+<div class="modal-overlay" id="modalBindAiKey">
+  <div class="modal-box">
+    <div class="modal-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+      绑定 Google AI Studio 官方 1500次 API Key
+    </div>
+    <div style="font-size: 12px; color: var(--text-mid);">
+      为账号 <b id="bindAiKeyEmail" style="color: var(--accent-blue-glow);"></b> 配置官方每日 1500 次高速额度。
+    </div>
+    <button class="btn primary" onclick="openExternalUrl('https://aistudio.google.com/app/apikey')" style="width: 100%; justify-content: center;">
+      前往 Google AI Studio 生成 Key ↗
+    </button>
+    <input type="password" id="inputAiKey" class="search-input" placeholder="AIzaSy..." style="height: 32px; width: 100%;">
+    <div id="bindAiKeyNotice" style="font-size: 11px; display: none;"></div>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+      <button class="btn" onclick="closeBindAiKeyModal()">取消</button>
+      <button class="btn primary" id="btnSubmitBindAiKey" onclick="submitBindAiKey()">保存并测试</button>
+    </div>
+  </div>
+</div>
 
-        html += '  <td>' + aiStudioCol + '</td>';
-        html += '  <td>' + webAuthCol + '</td>';
+<!-- Modal 2: 绑定 Web 会话凭证 -->
+<div class="modal-overlay" id="modalBindWebAuth">
+  <div class="modal-box">
+    <div class="modal-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+      绑定 Gemini Web 反代凭据
+    </div>
+    <div style="font-size: 12px; color: var(--text-mid);">
+      为账号 <b id="bindWebAuthEmail" style="color: var(--accent-blue-glow);"></b> 手动同步 Cookie 会话。
+    </div>
+    <button class="btn" onclick="openExternalUrl('https://gemini.google.com')" style="width: 100%; justify-content: center;">
+      打开 gemini.google.com 网页 ↗
+    </button>
+    <textarea id="inputWebCookie" class="search-input" rows="3" placeholder="__Secure-1PSID=...;" style="height: 70px; width: 100%; padding: 6px;"></textarea>
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+      <input type="checkbox" id="chkIsPro" checked>
+      <label for="chkIsPro">已开通 Gemini Advanced (Pro) 会员</label>
+    </div>
+    <div id="bindWebAuthNotice" style="font-size: 11px; display: none;"></div>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+      <button class="btn" onclick="closeBindWebAuthModal()">取消</button>
+      <button class="btn primary" id="btnSubmitBindWebAuth" onclick="submitBindWebAuth()">保存凭据</button>
+    </div>
+  </div>
+</div>
 
-        html += '  <td style="text-align: right;">';
-        if (!isActive) {
-          html += '    <button class="fluent-btn mini" onclick="switchAccount(\'' + acc.email + '\', this)" style="margin-right: 4px;">设为主凭据</button>';
-        }
-        html += '    <button class="fluent-btn mini subtle-danger" onclick="deleteAccount(\'' + acc.email + '\')">移除</button>';
-        html += '  </td>';
-        html += '</tr>';
-      });
+<script>
+  let serverBase = 'http://localhost:3999';
+  function api(path) { return serverBase + path; }
 
-      tbody.innerHTML = html;
+  let currentActiveEmail = null;
+  let cachedAccounts = [];
+  let cachedGatewayModels = [];
+  let currentModelCategory = 'all';
+  let allTurnsData = [];
+  let currentFilter = 'all';
+
+  function handleTitlebarMouseDown(e) {
+    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('label')) return;
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dragWindow) {
+      window.webkit.messageHandlers.dragWindow.postMessage({});
     }
+  }
 
-    let rawTurnsList = [];
-    let currentFilter = 'all';
-
-    function setTimelineFilter(filter, btn) {
-      currentFilter = filter;
-      const btns = document.querySelectorAll('#filterBtnGroup .pivot-tab');
-      btns.forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
-      renderTurnLog();
+  function openExternalUrl(url) {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.openExternal) {
+      window.webkit.messageHandlers.openExternal.postMessage(url);
+    } else {
+      window.open(url, '_blank');
     }
+  }
 
-    function renderTurnLog() {
-      const tbody = document.getElementById('turnTableBody');
-      const searchKeyword = (document.getElementById('searchInput')?.value || '').toLowerCase();
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-      const yesterdayStart = todayStart - 86400000;
-      const sevenDaysAgo = todayStart - 7 * 86400000;
-
-      const filtered = rawTurnsList.filter(t => {
-        const time = new Date(t.time).getTime();
-        let passTime = true;
-        if (currentFilter === 'today') passTime = time >= todayStart;
-        if (currentFilter === 'yesterday') passTime = time >= yesterdayStart && time < todayStart;
-        if (currentFilter === '7days') passTime = time >= sevenDaysAgo;
-        if (!passTime) return false;
-
-        if (searchKeyword) {
-          return (t.prompt || '').toLowerCase().includes(searchKeyword);
-        }
-        return true;
-      });
-
-      let totalTokens = 0;
-      let totalInputTokens = 0;
-      let totalOutputTokens = 0;
-      filtered.forEach(t => {
-        totalTokens += t.estTokens || 0;
-        totalInputTokens += t.inputTokens || 0;
-        totalOutputTokens += t.outputTokens || 0;
-      });
-      const count = filtered.length;
-      const avg = count > 0 ? Math.round(totalTokens / count) : 0;
-      const avgIn = count > 0 ? Math.round(totalInputTokens / count) : 0;
-      const avgOut = count > 0 ? Math.round(totalOutputTokens / count) : 0;
-
-      document.getElementById('filterTotalTokens').textContent = totalTokens.toLocaleString();
-      document.getElementById('filterTokensBreakdown').textContent = `输入 ~${totalInputTokens.toLocaleString()} · 输出 ~${totalOutputTokens.toLocaleString()}`;
-      document.getElementById('filterTotalTurns').textContent = count;
-      document.getElementById('filterAvgTokens').textContent = '~' + avg.toLocaleString();
-      document.getElementById('filterAvgBreakdown').textContent = `均次输入 ~${avgIn.toLocaleString()} · 输出 ~${avgOut.toLocaleString()}`;
-
-      if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="color: var(--ms-text-muted); text-align: center; padding: 24px;">暂无匹配的对话记录</td></tr>';
-        return;
-      }
-
-      let html = '';
-      filtered.forEach(t => {
-        const d = new Date(t.time);
-        html += '<tr>';
-        html += '  <td class="tabular" style="color: var(--ms-text-mid); font-size: 11px;">' + d.toLocaleTimeString() + '<br><span style="font-size: 10px; color: var(--ms-text-muted);">' + d.toLocaleDateString() + '</span></td>';
-        html += '  <td>';
-        html += '    <div style="font-weight: 500; color: var(--ms-text-high); line-height: 1.4; word-break: break-word;">' + escapeHtml(t.prompt) + '</div>';
-        html += '  </td>';
-        html += '  <td class="tabular" style="color: var(--ms-text-muted); font-size: 11px;">' + t.steps + ' 步</td>';
-        html += '  <td style="text-align: right;">';
-        html += '    <span class="tabular" style="font-size: 12px; color: var(--ms-text-mid); font-weight: 500;">~' + (t.inputTokens || 0).toLocaleString() + '</span>';
-        if (t.contextTokens) {
-          html += '    <div class="tabular" style="font-size: 10px; color: var(--ms-text-muted);" title="发起本轮时的历史累积上下文基数">上下文 ~' + t.contextTokens.toLocaleString() + '</div>';
-        }
-        html += '  </td>';
-        html += '  <td style="text-align: right;">';
-        html += '    <span class="tabular" style="font-size: 12px; color: var(--ms-green); font-weight: 500;">~' + (t.outputTokens || 0).toLocaleString() + '</span>';
-        html += '  </td>';
-        html += '  <td style="text-align: right;">';
-        html += '    <span class="tabular" style="font-size: 13px; font-weight: 600; color: var(--ms-blue-luminous);">~' + t.estTokens.toLocaleString() + '</span>';
-        html += '  </td>';
-        html += '</tr>';
-      });
-
-      tbody.innerHTML = html;
+  function triggerAutoAuth(email) {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.startAutoAuth) {
+      window.webkit.messageHandlers.startAutoAuth.postMessage({ email, mode: 'sync' });
+    } else {
+      openBindWebAuthModal(email);
     }
+  }
 
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  function triggerAddAccountAuto() {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.startAutoAuth) {
+      window.webkit.messageHandlers.startAutoAuth.postMessage({ mode: 'new' });
+    } else {
+      window.open(api('/auth/google'), '_blank');
     }
+  }
 
-    async function refreshAllQuotas() {
-      showNotice('正在直连 Google Cloud 专有端点同步所有纳管账号配额...');
-      await fetch(api('/api/refresh-quotas'), { method: 'POST' });
-      await loadData();
-      showNotice('所有小号配额已同步完成', true);
-    }
+  // 视图切换
+  function switchSidebarView(viewKey) {
+    const viewMap = {
+      hub: document.getElementById('viewHub'),
+      accounts: document.getElementById('viewAccounts'),
+      audit: document.getElementById('viewAudit'),
+      models: document.getElementById('viewModels'),
+      docs: document.getElementById('viewDocs')
+    };
+    const navMap = {
+      hub: document.getElementById('navItemHub'),
+      accounts: document.getElementById('navItemAccounts'),
+      audit: document.getElementById('navItemAudit'),
+      models: document.getElementById('navItemModels'),
+      docs: document.getElementById('navItemDocs')
+    };
 
-    function triggerAutoAuth(email) {
-      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.startAutoAuth) {
-        window.webkit.messageHandlers.startAutoAuth.postMessage({ email, mode: 'sync' });
+    for (const [k, el] of Object.entries(viewMap)) {
+      if (!el) continue;
+      if (k === viewKey) {
+        el.classList.add('active');
+        navMap[k]?.classList.add('active');
       } else {
-        openBindWebAuthModal(email);
+        el.classList.remove('active');
+        navMap[k]?.classList.remove('active');
       }
     }
+  }
 
-    function triggerAddAccountAuto() {
-      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.startAutoAuth) {
-        window.webkit.messageHandlers.startAutoAuth.postMessage({ mode: 'new' });
-      } else {
-        addNewAccount();
-      }
-    }
+  window.switchSidebarView = switchSidebarView;
+  window.addEventListener('hashchange', () => {
+    const h = location.hash.replace('#', '');
+    if (h) switchSidebarView(h);
+  });
+  if (location.hash) {
+    const h = location.hash.replace('#', '');
+    if (h) switchSidebarView(h);
+  }
 
-    function switchMainView(view) {
-      const views = {
-        gateway: document.getElementById('viewGateway'),
-        accounts: document.getElementById('viewAccounts'),
-        audit: document.getElementById('viewAudit'),
-        docs: document.getElementById('viewDocs')
-      };
-      const tabs = {
-        gateway: document.getElementById('tabNavGateway'),
-        accounts: document.getElementById('tabNavAccounts'),
-        audit: document.getElementById('tabNavAudit'),
-        docs: document.getElementById('tabNavDocs')
-      };
+  // 键盘快捷键 1-5
+  window.addEventListener('keydown', (e) => {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+    if (e.key === '1') switchSidebarView('hub');
+    else if (e.key === '2') switchSidebarView('accounts');
+    else if (e.key === '3') switchSidebarView('audit');
+    else if (e.key === '4') switchSidebarView('models');
+    else if (e.key === '5') switchSidebarView('docs');
+  });
 
-      for (const [k, el] of Object.entries(views)) {
-        if (!el) continue;
-        if (k === view) {
-          el.style.display = 'flex';
-          tabs[k]?.classList.add('active');
-        } else {
-          el.style.display = 'none';
-          tabs[k]?.classList.remove('active');
-        }
-      }
-    }
+  function switchClientDoc(client, btn) {
+    document.querySelectorAll('#docsClientTabs .btn').forEach(b => b.classList.remove('primary'));
+    if (btn) btn.classList.add('primary');
+    document.querySelectorAll('.client-doc-pane').forEach(p => p.style.display = 'none');
+    const pane = document.getElementById('doc' + client.charAt(0).toUpperCase() + client.slice(1));
+    if (pane) pane.style.display = 'block';
+  }
 
-    window.addEventListener('keydown', (e) => {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
-      if (e.key === '1') switchMainView('gateway');
-      else if (e.key === '2') switchMainView('accounts');
-      else if (e.key === '3') switchMainView('audit');
-      else if (e.key === '4') switchMainView('docs');
+  function copyText(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      const origin = btn.textContent;
+      btn.textContent = '已复制!';
+      setTimeout(() => { btn.textContent = origin; }, 1200);
     });
+  }
 
-    function switchClientDoc(client, btn) {
-      document.querySelectorAll('#docsClientTabs .pivot-tab').forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
-      document.querySelectorAll('.client-doc-pane').forEach(p => p.style.display = 'none');
-      const targetId = 'doc' + client.charAt(0).toUpperCase() + client.slice(1);
-      const pane = document.getElementById(targetId);
-      if (pane) pane.style.display = 'block';
-    }
+  function copyCursorConfig(btn) {
+    const config = {
+      "model": "gemini-3.8-flash",
+      "baseUrl": "http://localhost:3999/v1",
+      "apiKey": "sk-antigravity"
+    };
+    navigator.clipboard.writeText(JSON.stringify(config, null, 2)).then(() => {
+      const origin = btn.textContent;
+      btn.textContent = '已复制 Cursor JSON!';
+      setTimeout(() => { btn.textContent = origin; }, 1200);
+    });
+  }
 
-    async function runGatewayQuickTest() {
-      const baseModel = document.getElementById('quickTestModel').value;
-      const thinkLevel = document.getElementById('quickTestThinkLevel').value;
-      const model = thinkLevel ? `${baseModel}${thinkLevel}` : baseModel;
+  // 数据拉取与渲染
+  async function loadData() {
+    await Promise.all([loadStatus(), loadAccounts(), loadTurnLog()]);
+  }
 
-      const btn = document.getElementById('btnRunQuickTest');
-      const out = document.getElementById('quickTestOutput');
-      out.style.display = 'block';
-      out.innerHTML = '<span style="color:var(--ms-blue-luminous);">[发起请求] 正在调用统一网关 /v1/chat/completions (目标模型: ' + model + ')...</span>\n';
-      btn.disabled = true;
-      btn.textContent = '⏳ 测试中...';
-      const startTime = Date.now();
+  async function loadStatus() {
+    try {
+      const res = await fetch(api('/api/status'));
+      const data = await res.json();
 
-      try {
-        const res = await fetch(api('/v1/chat/completions'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: 'user', content: '请简短介绍你自己并说明当前的响应状态与思考模式。' }],
-            stream: true
-          })
-        });
-
-        if (!res.ok) {
-          const err = await res.text();
-          out.innerHTML += '\n<span style="color:var(--ms-red);">[调用失败 ' + res.status + ']: ' + err + '</span>';
-          return;
-        }
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let replyText = '';
-        out.innerHTML = '<span style="color:#10b981;">[连接成功] 正在流式打字输出...</span>\n\n';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
-          for (const line of lines) {
-            if (line.startsWith('data: ') && !line.includes('[DONE]')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                const delta = data.choices?.[0]?.delta?.content || '';
-                replyText += delta;
-                out.textContent = replyText;
-                out.scrollTop = out.scrollHeight;
-              } catch(e) {}
-            }
-          }
-        }
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-        out.innerHTML = replyText + '\n\n<span style="color:#10b981; font-size:11px; font-weight:600;">✓ 测试成功通过！耗时 ' + elapsed + 's · 响应完整且可用</span>';
-      } catch (err) {
-        out.innerHTML += '\n<span style="color:var(--ms-red);">[异常]: ' + err.message + '</span>';
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '▶ 立即单测';
-      }
-    }
-
-    async function addNewAccount() {
-      const btn = document.getElementById('btnAddAccount');
-      btn.disabled = true;
-      btn.textContent = '发起授权...';
-
-      try {
-        const res = await fetch(api('/api/auth-url'), { method: 'POST' });
-        const d = await res.json();
-        if (d.success && d.authUrl) {
-          openExternalUrl(d.authUrl);
-          showNotice('正在外部浏览器打开 Google 授权页面，请在浏览器中完成登录与授权。若未自动弹出，请点击：', true, d.authUrl);
-        } else {
-          showNotice('启动授权服务失败: ' + (d.error || '未知错误'));
-        }
-      } catch (err) {
-        showNotice('请求异常: ' + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> 添加小号 (OAuth)';
-      }
-    }
-
-    async function switchAccount(email, btn) {
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<span style="display:inline-block; animation: spin 0.8s linear infinite;">⏳</span> 正在切换...';
-      }
-      showNotice('正在热切换主凭据至 ' + email + '，正在无感重载底层语言服务...');
-      
-      try {
-        const res = await fetch(api('/api/switch'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        });
-        const d = await res.json();
-        if (d.success) {
-          showNotice('🎉 已成功切换为主凭据: ' + email + '，底层 Antigravity 会话已无感接力！', true);
-          await loadData();
-        } else {
-          showNotice('切换失败: ' + (d.error || '未知错误'));
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = '切换为主凭据';
-          }
-        }
-      } catch (err) {
-        showNotice('切换异常: ' + err.message);
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = '切换为主凭据';
+      const activeEmail = data.pool?.active || data.activeEmail || (data.currentSystemUser?.email);
+      if (activeEmail) {
+        currentActiveEmail = activeEmail;
+        const activeEl = document.getElementById('activeEmailText');
+        if (activeEl) {
+          const userName = data.currentSystemUser?.name || '';
+          activeEl.innerHTML = `
+            <div style="font-weight:600; color:var(--text-high); font-size:13px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${userName ? userName : activeEmail}</div>
+            <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${activeEmail}</div>
+          `;
         }
       }
+
+      const rawAccounts = Array.isArray(data.pool?.accounts) ? data.pool.accounts : Object.values(data.pool?.accounts || {});
+      cachedAccounts = rawAccounts;
+
+      // 统计与 4 KPI 看板
+      let sum5h = 0, count5h = 0, available5hCount = 0;
+      let sumWk = 0, countWk = 0;
+      let readyAccountsCount = 0;
+
+      rawAccounts.forEach(a => {
+        const q = a.quota;
+        if (q?.status === 'OK') readyAccountsCount++;
+        const frac5h = q?.gemini_5h?.remainingFraction;
+        if (typeof frac5h === 'number') {
+          sum5h += frac5h;
+          count5h++;
+          if (frac5h > 0.05) available5hCount++;
+        }
+        const fracWk = q?.gemini_weekly?.remainingFraction;
+        if (typeof fracWk === 'number') {
+          sumWk += fracWk;
+          countWk++;
+        }
+      });
+
+      const avg5h = count5h > 0 ? Math.round((sum5h / count5h) * 100) : 100;
+      const avgWk = countWk > 0 ? Math.round((sumWk / countWk) * 100) : 0;
+
+      const d5h = document.getElementById('dash5hVal');
+      if (d5h) d5h.textContent = avg5h + '%';
+      const d5hSub = document.getElementById('dash5hSub');
+      if (d5hSub) d5hSub.textContent = `${available5hCount} 个小号 5H 额度可用`;
+
+      const dWk = document.getElementById('dashWeeklyVal');
+      if (dWk) dWk.textContent = avgWk + '%';
+      const dWkSub = document.getElementById('dashWeeklySub');
+      if (dWkSub) dWkSub.textContent = `共纳管 ${rawAccounts.length} 个小号`;
+
+      const dAcc = document.getElementById('dashAccountVal');
+      if (dAcc) dAcc.textContent = `${readyAccountsCount} / ${rawAccounts.length}`;
+      const dAccSub = document.getElementById('dashAccountSub');
+      if (dAccSub) dAccSub.textContent = `当前挂载: ${activeEmail || '未指定'}`;
+
+      const rAcc = document.getElementById('radarAccountsText');
+      if (rAcc) rAcc.textContent = `${readyAccountsCount} / ${rawAccounts.length} 正常`;
+
+      if (data.gateway) {
+        const gw = data.gateway;
+        const capEl = document.getElementById('gatewayApiCapacityVal');
+        if (capEl) capEl.textContent = `剩余 ${(gw.totalRemaining || 0).toLocaleString()} / ${(gw.totalCapacity || 0).toLocaleString()} 次/天`;
+
+        const p = Math.min(100, Math.max(0, parseFloat(gw.percentRemaining || 100)));
+        const apiBar = document.getElementById('gatewayApiProgressBar');
+        if (apiBar) {
+          apiBar.style.width = p + '%';
+          apiBar.style.background = p < 20 ? 'var(--accent-red)' : 'var(--accent-green)';
+        }
+
+        const apiBadge = document.getElementById('gatewayApiPercentBadge');
+        if (apiBadge) {
+          apiBadge.textContent = p + '% 充足';
+          apiBadge.className = 'badge ' + (p < 20 ? 'red' : 'green');
+        }
+
+        const radarApiText = document.getElementById('radarApiCapacityText');
+        if (radarApiText) radarApiText.textContent = `${(gw.totalRemaining || 0).toLocaleString()} 次/天`;
+
+        cachedGatewayModels = gw.models || [];
+        const modelBadge = document.getElementById('navBadgeModelsCount');
+        if (modelBadge && cachedGatewayModels.length > 0) {
+          modelBadge.textContent = cachedGatewayModels.length;
+        }
+
+        renderGatewayModelTable();
+      }
+
+      if (data.sessionStats) {
+        const dTokens = document.getElementById('dashTotalTokens');
+        if (dTokens) dTokens.textContent = data.sessionStats.estTokens || data.sessionStats.totalTokens || '--';
+        const dTokenSub = document.getElementById('dashTokenSub');
+        if (dTokenSub) dTokenSub.textContent = '活跃会话累计';
+      }
+
+      // 渲染账号矩阵表格
+      renderAccountsTable(rawAccounts, activeEmail);
+
+      // 如果有历史会话与 turns，直接渲染
+      if (Array.isArray(data.dialogTurns)) {
+        allTurnsData = data.dialogTurns;
+        renderTurnLog();
+      }
+    } catch (e) {
+      console.warn('loadStatus error:', e);
+    }
+  }
+
+  function renderAccountsTable(accounts, activeEmail) {
+    const badge = document.getElementById('navBadgeAccountsCount');
+    if (badge) badge.textContent = accounts.length;
+
+    const tbody = document.getElementById('poolTableBody');
+    if (!tbody) return;
+
+    if (accounts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">暂无纳管账号。点击右上角【+ 接入新账号】</td></tr>';
+      return;
     }
 
-    async function deleteAccount(email) {
-      if (!confirm('确定从号池中移除账号 ' + email + ' 吗？')) return;
-      await fetch(api('/api/delete'), {
+    tbody.innerHTML = accounts.map(a => {
+      const isCur = a.email === activeEmail;
+      const q = a.quota;
+      let statusBadge = isCur 
+        ? '<span class="badge blue">挂载中</span>' 
+        : (q?.status === 'ERROR' && q?.validationUrl 
+            ? `<a href="${q.validationUrl}" target="_blank" class="badge amber" style="text-decoration:none;">需验证 ↗</a>`
+            : (q?.status === 'ERROR' ? '<span class="badge red">异常</span>' : '<span class="badge green">就绪</span>'));
+
+      let quota5h = q?.gemini_5h;
+      let pct5h = quota5h?.remainingFraction !== undefined ? Math.round(quota5h.remainingFraction * 100) : null;
+      let quota5hHtml = typeof pct5h === 'number' 
+        ? `<div style="display:flex; justify-content:space-between; align-items:center; width:56px;"><span style="font-family:var(--font-mono); font-size:11px; font-weight:600; color:${pct5h < 20 ? 'var(--accent-red)' : 'var(--text-high)'};">${pct5h}%</span></div>
+           <div class="cap-track" style="height:3px; width:56px; margin-top:3px;"><div class="cap-fill" style="width:${pct5h}%; background:${pct5h < 20 ? 'var(--accent-red)' : 'var(--accent-green)'};"></div></div>`
+        : '<span style="color:var(--text-muted); font-size:11px;">未获取</span>';
+
+      let quotaWk = q?.gemini_weekly;
+      let pctWk = quotaWk?.remainingFraction !== undefined ? Math.round(quotaWk.remainingFraction * 100) : null;
+      let quotaWkHtml = typeof pctWk === 'number'
+        ? `<div style="display:flex; justify-content:space-between; align-items:center; width:56px;"><span style="font-family:var(--font-mono); font-size:11px; font-weight:600; color:${pctWk < 20 ? 'var(--accent-red)' : 'var(--text-high)'};">${pctWk}%</span></div>
+           <div class="cap-track" style="height:3px; width:56px; margin-top:3px;"><div class="cap-fill" style="width:${pctWk}%; background:${pctWk < 20 ? 'var(--accent-red)' : 'var(--accent-green)'};"></div></div>`
+        : '<span style="color:var(--text-muted); font-size:11px;">未获取</span>';
+
+      const limit = a.ai_studio?.daily_limit || 1500;
+      const used = a.ai_studio?.used_today || 0;
+      const remaining = Math.max(0, limit - used);
+      const hasKey = !!a.ai_studio?.api_key;
+      let apiKeyHtml = `
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="badge ${remaining > 0 ? 'green' : 'amber'}">${remaining.toLocaleString()} 次/天</span>
+          ${hasKey ? '<span style="font-size:10px; color:var(--accent-blue-glow);">专属Key</span>' : `<button class="btn mini" onclick="openBindAiKeyModal('${a.email}')">+ 绑定 Key</button>`}
+        </div>
+      `;
+
+      const isPro = !!(a.web_auth?.is_pro);
+      const webReady = a.web_auth?.status === 'active' || !!a.web_auth?.cookie;
+      let webAuthHtml = webReady 
+        ? `<span class="badge ${isPro ? 'amber' : 'green'}">${isPro ? 'Pro 会员 (无限)' : '网页反代就绪'}</span>`
+        : `<button class="btn mini" onclick="triggerAutoAuth('${a.email}')">同步反代</button>`;
+
+      let opHtml = isCur
+        ? `<button class="btn mini danger-subtle" onclick="deleteAccount('${a.email}')">移除</button>`
+        : `<button class="btn mini" onclick="switchAccount('${a.email}')">挂载</button>
+           <button class="btn mini danger-subtle" onclick="deleteAccount('${a.email}')">移除</button>`;
+
+      const avatar = a.picture
+        ? `<img src="${a.picture}" style="width:24px; height:24px; border-radius:50%; border:1px solid var(--border-hairline); object-fit:cover; flex-shrink:0;">`
+        : `<div style="width:24px; height:24px; border-radius:50%; background:var(--surface-elevated); border:1px solid var(--border-hairline); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:var(--text-mid); flex-shrink:0;">${(a.email || 'U')[0].toUpperCase()}</div>`;
+
+      return `
+        <tr>
+          <td>
+            <div style="display:flex; align-items:center; gap:8px;">
+              ${avatar}
+              <div style="min-width:0; overflow:hidden;">
+                <div style="font-weight:600; font-size:12px; color:var(--text-high); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${a.name || a.email}</div>
+                <div style="font-size:10px; color:var(--text-muted); font-family:var(--font-mono); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${a.email}</div>
+              </div>
+            </div>
+          </td>
+          <td>${statusBadge}</td>
+          <td>${quota5hHtml}</td>
+          <td>${quotaWkHtml}</td>
+          <td>${apiKeyHtml}</td>
+          <td>${webAuthHtml}</td>
+          <td style="text-align: right;"><div style="display:inline-flex; gap:4px; justify-content:flex-end;">${opHtml}</div></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function loadAccounts() {
+    try {
+      const res = await fetch(api('/api/accounts'));
+      const list = await res.json();
+      if (Array.isArray(list)) {
+        cachedAccounts = list;
+        renderAccountsTable(cachedAccounts, currentActiveEmail);
+      }
+    } catch (e) {
+      console.warn('loadAccounts error:', e);
+    }
+  }
+
+  async function switchAccount(email) {
+    try {
+      const res = await fetch(api('/api/account/switch'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
-      showNotice('已移除账号 ' + email, true);
-      loadData();
-    }
+      const d = await res.json();
+      if (d.success) await loadData();
+    } catch (e) { alert('切换失败: ' + e.message); }
+  }
 
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('added')) {
-      showNotice('小号授权完成！正在读取该账号配额并入池...', true);
-      window.history.replaceState({}, document.title, window.location.pathname);
-      refreshAllQuotas();
-    }
-
-    let cachedGatewayModels = [];
-    let currentModelCategory = 'all';
-
-    function setModelCategoryFilter(cat, btn) {
-      currentModelCategory = cat;
-      document.querySelectorAll('#modelCategoryTabs .pivot-tab').forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
-      renderGatewayModelTable();
-    }
-
-    function selectModelForQuickTest(modelId) {
-      const selectEl = document.getElementById('quickTestModel');
-      if (selectEl) {
-        let found = false;
-        for (let i = 0; i < selectEl.options.length; i++) {
-          if (selectEl.options[i].value === modelId) {
-            selectEl.selectedIndex = i;
-            found = true;
-            break;
-          }
-        }
-        if (!found) {
-          const opt = new Option(`${modelId} (官方动态)`, modelId, true, true);
-          selectEl.add(opt);
-        }
-        selectEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        selectEl.style.outline = '2px solid var(--ms-blue-luminous)';
-        setTimeout(() => { selectEl.style.outline = 'none'; }, 1500);
-      }
-    }
-
-    function renderGatewayModelTable() {
-      const tbody = document.getElementById('gatewayModelTableBody');
-      if (!tbody) return;
-
-      const search = (document.getElementById('modelFilterInput')?.value || '').toLowerCase().trim();
-
-      const fallbackList = [
-        { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash (最新旗舰)", source: "Gemini Web (官网动态)", description: "Google 官网最新旗舰，极速响应与全能任务", thinkSupport: "@think=0~4 全档位" },
-        { id: "gemini-3.8-live-extended-thinking", name: "Gemini 3.8 Live Extended Thinking (深度推理)", source: "Gemini Web (官网动态)", description: "官方原生超长思维链模型，长篇论证与工程规划", thinkSupport: "原生扩展思考链" },
-        { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash (官网全能)", source: "Gemini Web (官网动态)", description: "官网高频全能多模态旗舰，极佳平衡", thinkSupport: "@think=0~4 支持" },
-        { id: "gemini-3.5-flash-thinking-lite", name: "Gemini 3.5 Flash Thinking (深度思考)", source: "Gemini Web (官网动态)", description: "带思维链深度推理，适合算法与复杂代码", thinkSupport: "思维链展开" },
-        { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro (Pro会员专属)", source: "Gemini Web (Pro会员)", description: "满血 Pro 会员模型，综合逻辑与推理巅峰", thinkSupport: "高级深度思考" },
-        { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (官方极速)", source: "AI Studio (1500次/天)", description: "Google 官方 API 极速模型，低延迟直出", thinkSupport: "支持" },
-        { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (官方满血)", source: "AI Studio (1500次/天)", description: "官方 200 万超大上下文窗口，长文档分析", thinkSupport: "支持" },
-        { id: "gemini-2.0-flash-thinking-exp", name: "Gemini 2.0 Flash Thinking (官方思考)", source: "AI Studio (1500次/天)", description: "官方 API 实验性多步思考模型", thinkSupport: "多步规划" },
-        { id: "gemini-flash-lite", name: "Gemini Flash Lite (Web 极速)", source: "Gemini Web (官网动态)", description: "轻量超快速轻量响应", thinkSupport: "极速无思考" }
-      ];
-
-      let list = (cachedGatewayModels && cachedGatewayModels.length > 0) ? cachedGatewayModels : fallbackList;
-      const flagshipIds = ['gemini-3.8-flash', 'gemini-3.8-live-extended-thinking', 'gemini-3.7-flash', 'gemini-3.5-flash-thinking', 'gemini-3.5-flash-thinking-lite', 'gemini-3.1-pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-thinking-exp'];
-
-      let filtered = list.filter(m => {
-        const id = m.id.toLowerCase();
-        const src = (m.source || '').toLowerCase();
-        if (currentModelCategory === 'flagship') {
-          return flagshipIds.includes(m.id) || id.includes('3.8') || id.includes('3.7');
-        } else if (currentModelCategory === 'thinking') {
-          return id.includes('thinking') || id.includes('extended');
-        } else if (currentModelCategory === 'pro') {
-          return id.includes('pro') || src.includes('pro');
-        } else if (currentModelCategory === 'api') {
-          return src.includes('studio') || src.includes('api');
-        } else if (currentModelCategory === 'web') {
-          return src.includes('web');
-        }
-        return true;
+  async function deleteAccount(email) {
+    if (!confirm(`确定移除账号 ${email} 吗？`)) return;
+    try {
+      const res = await fetch(api('/api/account/delete'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
       });
+      const d = await res.json();
+      if (d.success) await loadData();
+    } catch (e) { alert('移除失败: ' + e.message); }
+  }
 
-      if (search) {
-        filtered = filtered.filter(m => {
-          return m.id.toLowerCase().includes(search) || 
-                 (m.name || '').toLowerCase().includes(search) || 
-                 (m.description || '').toLowerCase().includes(search);
-        });
-      }
-
-      filtered.sort((a, b) => {
-        const idxA = flagshipIds.indexOf(a.id);
-        const idxB = flagshipIds.indexOf(b.id);
-        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-        if (idxA !== -1) return -1;
-        if (idxB !== -1) return 1;
-        return a.id.localeCompare(b.id);
+  async function toggleAutoSwitch(el) {
+    try {
+      await fetch(api('/api/account/auto-switch'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: el.checked })
       });
+    } catch (e) { console.warn(e); }
+  }
 
-      if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--ms-text-muted); padding: 24px;">未找到匹配的模型</td></tr>`;
-        return;
-      }
+  async function refreshAllQuotas() {
+    try {
+      await fetch(api('/api/refresh-quotas'), { method: 'POST' });
+      await loadData();
+    } catch (e) { console.warn(e); }
+  }
 
-      tbody.innerHTML = filtered.map(m => {
-        const isFlagship = flagshipIds.includes(m.id);
-        const isApi = (m.source || '').includes('Studio') || (m.source || '').includes('API');
-        const isPro = (m.source || '').includes('Pro') || m.id.includes('pro');
-        const isThinking = m.id.includes('thinking') || m.id.includes('extended');
+  // 动态模型矩阵渲染
+  function setModelCategoryFilter(cat, btn) {
+    currentModelCategory = cat;
+    document.querySelectorAll('#modelCategoryTabs .btn').forEach(b => b.classList.remove('primary'));
+    if (btn) btn.classList.add('primary');
+    renderGatewayModelTable();
+  }
 
-        let channelBadge = isApi 
-          ? `<span class="status-badge" style="background: rgba(0, 120, 212, 0.12); color: var(--ms-blue-luminous); border-color: rgba(0, 120, 212, 0.25);">官方 API (1500次)</span>`
-          : (isPro 
-              ? `<span class="status-badge" style="background: rgba(245, 158, 11, 0.12); color: var(--ms-amber); border-color: rgba(245, 158, 11, 0.25);">Web 逆向 (Pro)</span>`
-              : `<span class="status-badge" style="background: rgba(16, 185, 129, 0.12); color: var(--ms-green); border-color: rgba(16, 185, 129, 0.25);">Web 逆向通道</span>`);
-
-        let thinkBadge = isThinking
-          ? `<span style="font-family:var(--font-mono); font-size:11px; color:#f59e0b; font-weight:600;">原生思维链</span>`
-          : (m.id.includes('3.8') || m.id.includes('3.7')
-              ? `<span style="font-family:var(--font-mono); font-size:11px; color:var(--ms-blue-luminous);">@think=0~4</span>`
-              : `<span style="font-size:11px; color:var(--ms-text-muted);">默认平衡</span>`);
-
-        let statusBadge = `<span class="status-badge status-active" style="font-size:10px;">● 就绪</span>`;
-
-        return `
-          <tr>
-            <td>
-              <div style="display:flex; align-items:center; gap:6px;">
-                <code style="font-family:var(--font-mono); font-size:12px; font-weight:600; color:${isFlagship ? 'var(--ms-blue-luminous)' : 'var(--ms-text-high)'};">${m.id}</code>
-                ${isFlagship ? '<span class="status-badge" style="font-size:9px; padding:0 4px; background:rgba(0,120,212,0.15); color:var(--ms-blue-luminous);">旗舰</span>' : ''}
-              </div>
-            </td>
-            <td>${channelBadge}</td>
-            <td>${thinkBadge}</td>
-            <td style="color:var(--ms-text-mid); font-size:12px;">${m.description || m.name || 'Google 官方模型'}</td>
-            <td>${statusBadge}</td>
-            <td style="text-align: right;">
-              <div style="display:inline-flex; gap:6px; justify-content:flex-end;">
-                <button class="fluent-btn mini" onclick="selectModelForQuickTest('${m.id}')" title="带入上方单测台">单测</button>
-                <button class="fluent-btn mini" onclick="copyText('${m.id}', this)" title="复制模型ID">复制</button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function copyText(text, btn) {
-      navigator.clipboard.writeText(text).then(() => {
-        const origin = btn.textContent;
-        btn.textContent = '已复制!';
-        setTimeout(() => { btn.textContent = origin; }, 1200);
-      });
-    }
-
-    // Modal 1: AI Key
-    let currentBindAiEmail = null;
-    function openBindAiKeyModal(email, currentKey = '') {
-      currentBindAiEmail = email;
-      document.getElementById('bindAiKeyEmail').textContent = email;
-      const input = document.getElementById('inputAiKey');
-      input.value = currentKey || '';
-      const notice = document.getElementById('bindAiKeyNotice');
-      notice.style.display = 'none';
-      document.getElementById('modalBindAiKey').style.display = 'flex';
-      setTimeout(() => input.focus(), 50);
-    }
-    function closeBindAiKeyModal() {
-      document.getElementById('modalBindAiKey').style.display = 'none';
-      currentBindAiEmail = null;
-    }
-    async function submitBindAiKey() {
-      const email = currentBindAiEmail;
-      const apiKey = document.getElementById('inputAiKey').value.trim();
-      const btn = document.getElementById('btnSubmitBindAiKey');
-      const notice = document.getElementById('bindAiKeyNotice');
-      if (!apiKey) {
-        notice.style.display = 'block';
-        notice.style.color = 'var(--ms-red)';
-        notice.textContent = '请先输入 API Key';
-        return;
-      }
-      btn.disabled = true;
-      btn.textContent = '正在连接 Google 校验...';
-      notice.style.display = 'none';
-
-      try {
-        const res = await fetch(api('/api/account/bind-ai-key'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, apiKey })
-        });
-        const data = await res.json();
-        if (data.success) {
-          showNotice(`🎉 账号 ${email} 成功激活 1500 次/天官方高速 API 算力！`, true);
-          closeBindAiKeyModal();
-          await loadData();
-        } else {
-          notice.style.display = 'block';
-          notice.style.color = 'var(--ms-red)';
-          notice.textContent = data.error || '绑定失败';
-        }
-      } catch (e) {
-        notice.style.display = 'block';
-        notice.style.color = 'var(--ms-red)';
-        notice.textContent = '网络请求异常: ' + e.message;
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '测试并保存激活';
-      }
-    }
-
-    async function testAiKey(email, btn) {
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = '测试中..';
-      }
-      showNotice(`正在向账号 ${email} 的 AI Studio 官方 Key 发起测试请求...`);
-      try {
-        const res = await fetch(api('/api/account/test-ai-key'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        });
-        const data = await res.json();
-        if (data.success) {
-          showNotice(`✔ 官方 API 正常！响应耗时 ${data.elapsed}ms，模型回复: "${data.reply}"`, true);
-        } else {
-          showNotice(`❌ 官方 API 异常: ${data.error}`);
-        }
-      } catch (e) {
-        showNotice(`❌ 测试异常: ${e.message}`);
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = '单测';
+  function selectModelForQuickTest(modelId) {
+    const sel = document.getElementById('quickTestModel');
+    if (sel) {
+      let found = false;
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === modelId) {
+          sel.selectedIndex = i;
+          found = true;
+          break;
         }
       }
-    }
-
-    // Modal 2: Web Auth
-    let currentBindWebEmail = null;
-    function openBindWebAuthModal(email, isPro = true) {
-      currentBindWebEmail = email;
-      document.getElementById('bindWebAuthEmail').textContent = email;
-      document.getElementById('chkIsPro').checked = isPro;
-      document.getElementById('inputWebCookie').value = '';
-      const notice = document.getElementById('bindWebAuthNotice');
-      notice.style.display = 'none';
-      document.getElementById('modalBindWebAuth').style.display = 'flex';
-      setTimeout(() => document.getElementById('inputWebCookie').focus(), 50);
-    }
-    function closeBindWebAuthModal() {
-      document.getElementById('modalBindWebAuth').style.display = 'none';
-      currentBindWebEmail = null;
-    }
-    async function submitBindWebAuth() {
-      const email = currentBindWebEmail;
-      const cookie = document.getElementById('inputWebCookie').value.trim();
-      const isPro = document.getElementById('chkIsPro').checked;
-      const btn = document.getElementById('btnSubmitBindWebAuth');
-      const notice = document.getElementById('bindWebAuthNotice');
-      if (!cookie) {
-        notice.style.display = 'block';
-        notice.style.color = 'var(--ms-red)';
-        notice.textContent = '请先粘贴 Cookie 内容';
-        return;
+      if (!found) {
+        sel.add(new Option(modelId, modelId, true, true));
       }
-      btn.disabled = true;
-      btn.textContent = '正在同步...';
+      switchSidebarView('hub');
+      sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      sel.style.borderColor = 'var(--accent-blue-glow)';
+      setTimeout(() => { sel.style.borderColor = 'var(--border-card)'; }, 1500);
+    }
+  }
 
-      try {
-        const res = await fetch(api('/api/account/bind-web-auth'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, cookie, isPro })
-        });
-        const data = await res.json();
-        if (data.success) {
-          showNotice(`🎉 账号 ${email} 成功同步 Web 反代凭据！`, true);
-          closeBindWebAuthModal();
-          await loadData();
-        } else {
-          notice.style.display = 'block';
-          notice.style.color = 'var(--ms-red)';
-          notice.textContent = data.error || '保存失败';
-        }
-      } catch (e) {
-        notice.style.display = 'block';
-        notice.style.color = 'var(--ms-red)';
-        notice.textContent = '网络请求异常: ' + e.message;
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '保存并同步凭据';
-      }
+  function renderGatewayModelTable() {
+    const tbody = document.getElementById('gatewayModelTableBody');
+    if (!tbody) return;
+
+    const search = (document.getElementById('modelFilterInput')?.value || '').toLowerCase().trim();
+
+    const fallbackList = [
+      { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash (最新旗舰)", source: "Gemini Web (官网动态)", description: "Google 官网最新旗舰，极速响应与全能任务", thinkSupport: "@think=0~4 全档位" },
+      { id: "gemini-3.8-live-extended-thinking", name: "Gemini 3.8 Live Extended Thinking", source: "Gemini Web (官网动态)", description: "官方原生超长思维链模型，长篇论证与工程规划", thinkSupport: "原生思维链" },
+      { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash (官网全能)", source: "Gemini Web (官网动态)", description: "官网高频全能多模态旗舰，极佳平衡", thinkSupport: "@think=0~4 支持" },
+      { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro (Pro会员专属)", source: "Gemini Web (Pro会员)", description: "满血 Pro 会员模型，综合逻辑与推理巅峰", thinkSupport: "深度思考" },
+      { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (官方极速)", source: "AI Studio (1500次/天)", description: "Google 官方 API 极速模型，低延迟直出", thinkSupport: "支持" },
+      { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (官方满血)", source: "AI Studio (1500次/天)", description: "官方 200 万超大上下文窗口，长文档分析", thinkSupport: "支持" }
+    ];
+
+    let list = (cachedGatewayModels && cachedGatewayModels.length > 0) ? cachedGatewayModels : fallbackList;
+    const flagshipIds = ['gemini-3.8-flash', 'gemini-3.8-live-extended-thinking', 'gemini-3.7-flash', 'gemini-3.1-pro', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+
+    let filtered = list.filter(m => {
+      const id = m.id.toLowerCase();
+      const src = (m.source || '').toLowerCase();
+      if (currentModelCategory === 'flagship') return flagshipIds.includes(m.id) || id.includes('3.8') || id.includes('3.7');
+      if (currentModelCategory === 'thinking') return id.includes('thinking') || id.includes('extended');
+      if (currentModelCategory === 'pro') return id.includes('pro') || src.includes('pro');
+      return true;
+    });
+
+    if (search) {
+      filtered = filtered.filter(m => m.id.toLowerCase().includes(search) || (m.description || '').toLowerCase().includes(search));
     }
 
-    // Modal 3: Models List
-    function openModelsModal() {
-      const container = document.getElementById('modelsListContainer');
-      const models = cachedGatewayModels && cachedGatewayModels.length > 0 ? cachedGatewayModels : [
-        { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (官方极速)", source: "AI Studio (1500次/天)", description: "新一代多模态旗舰，极速低延迟" },
-        { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (官方满血)", source: "AI Studio (1500次/天)", description: "超强综合逻辑推理与200万超大上下文" },
-        { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash (官方轻量)", source: "AI Studio (1500次/天)", description: "轻量快速任务" },
-        { id: "gemini-2.0-flash-thinking-exp", name: "Gemini 2.0 Flash Thinking (官方思考)", source: "AI Studio (1500次/天)", description: "带思维链推理与多步规划" },
-        { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro (Web Pro会员专属)", source: "Gemini Web (Pro)", description: "满血 Pro 会员模型，无限额度" },
-        { id: "gemini-3.5-flash-thinking", name: "Gemini 3.5 Flash Thinking (Web 深度思考)", source: "Gemini Web", description: "扩展思考，最长支持2万字长篇输出" },
-        { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash (Web 全能)", source: "Gemini Web", description: "全能 Web 模型" },
-        { id: "gemini-flash-lite", name: "Gemini Flash Lite (Web 极速)", source: "Gemini Web", description: "超快轻量响应" }
-      ];
+    filtered.sort((a, b) => {
+      const idxA = flagshipIds.indexOf(a.id);
+      const idxB = flagshipIds.indexOf(b.id);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.id.localeCompare(b.id);
+    });
 
-      container.innerHTML = models.map(m => `
-        <div style="background: var(--ms-surface-base); padding: 10px 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); display:flex; align-items:center; justify-content:space-between; gap:12px;">
-          <div style="display:flex; flex-direction:column; gap:3px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <code style="font-family:var(--font-mono); font-size:13px; font-weight:600; color:var(--ms-blue-luminous);">${m.id}</code>
-              <span class="status-badge" style="font-size:10px;">${m.source}</span>
+    tbody.innerHTML = filtered.map(m => {
+      const isFlagship = flagshipIds.includes(m.id);
+      const isApi = (m.source || '').includes('Studio') || (m.source || '').includes('API');
+      const isPro = (m.source || '').includes('Pro') || m.id.includes('pro');
+
+      let channelBadge = isApi 
+        ? `<span class="badge blue">官方 API (1500次)</span>`
+        : (isPro ? `<span class="badge amber">Web 逆向 (Pro)</span>` : `<span class="badge green">Web 逆向通道</span>`);
+
+      let thinkBadge = m.id.includes('thinking') || m.id.includes('extended')
+        ? `<span style="font-family:var(--font-mono); font-size:11px; color:#f59e0b; font-weight:600;">原生思维链</span>`
+        : (m.id.includes('3.8') || m.id.includes('3.7') ? `<span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-blue-glow);">@think=0~4</span>` : `<span style="color:var(--text-muted); font-size:11px;">默认平衡</span>`);
+
+      return `
+        <tr>
+          <td>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <code style="font-family:var(--font-mono); font-size:12px; font-weight:600; color:${isFlagship ? 'var(--accent-blue-glow)' : 'var(--text-high)'};">${m.id}</code>
+              ${isFlagship ? '<span class="badge blue" style="font-size:9px;">旗舰</span>' : ''}
             </div>
-            <div style="font-size:11px; color:var(--ms-text-muted);">${m.description || m.name}</div>
-          </div>
-          <button class="fluent-btn mini" onclick="copyText('${m.id}', this)">复制模型名</button>
-        </div>
-      `).join('');
+          </td>
+          <td>${channelBadge}</td>
+          <td>${thinkBadge}</td>
+          <td style="color:var(--text-mid); font-size:11px;">${m.description || m.name || 'Google Official Model'}</td>
+          <td><span class="badge green">● 就绪</span></td>
+          <td style="text-align: right;">
+            <div style="display:inline-flex; gap:4px; justify-content:flex-end;">
+              <button class="btn mini" onclick="selectModelForQuickTest('${m.id}')">单测</button>
+              <button class="btn mini" onclick="copyText('${m.id}', this)">复制</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
 
-      document.getElementById('modalModelsList').style.display = 'flex';
+  // 极速单测
+  async function runGatewayQuickTest() {
+    const modelSelect = document.getElementById('quickTestModel');
+    const thinkSelect = document.getElementById('quickTestThinkLevel');
+    const btn = document.getElementById('btnRunQuickTest');
+    const outBox = document.getElementById('quickTestOutput');
+
+    const baseModel = modelSelect.value;
+    const thinkSuffix = thinkSelect.value || '';
+    const targetModel = baseModel + thinkSuffix;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span>请求中...</span>';
+    outBox.style.display = 'block';
+    outBox.textContent = `[${new Date().toLocaleTimeString()}] 正在直连网关发送请求: model=${targetModel} ...\n`;
+
+    const start = Date.now();
+    try {
+      const res = await fetch(api('/v1/chat/completions'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer sk-antigravity'
+        },
+        body: JSON.stringify({
+          model: targetModel,
+          messages: [
+            { role: "user", content: "请用 1 句话回复：测试连接是否正常？" }
+          ]
+        })
+      });
+
+      const elapsed = Date.now() - start;
+      const data = await res.json();
+
+      if (res.ok && data.choices && data.choices[0]) {
+        outBox.textContent = `✅ [${new Date().toLocaleTimeString()}] 验证成功！延迟: ${elapsed}ms\n` +
+                             `调度模型: ${data.model || targetModel}\n` +
+                             `返回内容: ${data.choices[0].message?.content || JSON.stringify(data.choices[0])}\n` +
+                             `消耗统计: 输入 ${data.usage?.prompt_tokens || 0} · 输出 ${data.usage?.completion_tokens || 0} tokens`;
+      } else {
+        outBox.textContent = `❌ [${new Date().toLocaleTimeString()}] 响应异常 (HTTP ${res.status}):\n` + JSON.stringify(data, null, 2);
+      }
+    } catch (e) {
+      outBox.textContent = `❌ [${new Date().toLocaleTimeString()}] 网关直连失败: ${e.message}`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span>执行单测</span>';
     }
-    function closeModelsModal() {
-      document.getElementById('modalModelsList').style.display = 'none';
+  }
+
+  // 消耗审计
+  async function loadTurnLog() {
+    try {
+      const res = await fetch(api('/api/history'));
+      const list = await res.json();
+      if (Array.isArray(list)) {
+        allTurnsData = list;
+        renderTurnLog();
+      }
+    } catch (e) { console.warn('loadTurnLog error:', e); }
+  }
+
+  function setTimelineFilter(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll('#filterBtnGroup .btn').forEach(b => b.classList.remove('primary'));
+    if (btn) btn.classList.add('primary');
+    renderTurnLog();
+  }
+
+  function renderTurnLog() {
+    const tbody = document.getElementById('turnTableBody');
+    if (!tbody) return;
+
+    const query = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+    let filtered = allTurnsData.filter(t => {
+      if (query && !(t.prompt || '').toLowerCase().includes(query)) return false;
+      const total = t.estTokens || t.totalTokens || ((t.inputTokens || 0) + (t.outputTokens || 0));
+      if (currentFilter === 'heavy' && total < 100000) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">暂无日志</td></tr>';
+      return;
     }
 
-    loadData();
-    setInterval(loadData, 15000);
-  </script>
+    tbody.innerHTML = filtered.slice(0, 50).map(t => {
+      const timeStr = t.time || t.timestamp;
+      const displayTime = timeStr ? new Date(timeStr).toLocaleTimeString() : '--:--:--';
+      const promptText = (t.prompt || '用户对话').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const totalTokens = t.estTokens || t.totalTokens || ((t.inputTokens || 0) + (t.outputTokens || 0));
+      return `
+        <tr>
+          <td style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted);">${displayTime}</td>
+          <td style="font-weight:500; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${promptText}">${promptText}</td>
+          <td style="font-family:var(--font-mono);">${t.steps || 1} 步</td>
+          <td style="font-family:var(--font-mono); text-align:right;">${(t.inputTokens || 0).toLocaleString()}</td>
+          <td style="font-family:var(--font-mono); text-align:right; color:var(--accent-green);">${(t.outputTokens || 0).toLocaleString()}</td>
+          <td style="font-family:var(--font-mono); text-align:right; color:var(--accent-blue-glow); font-weight:600;">${totalTokens.toLocaleString()}</td>
+        </tr>
+      `;
+    }).join('');
+  }
 
-  <!-- Modal 1: 绑定 AI Studio 官方 Key -->
-  <div class="fluent-modal-overlay" id="modalBindAiKey">
-    <div class="fluent-modal">
-      <div class="fluent-modal-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-        绑定 Google AI Studio 官方 API Key (1500次/天)
-      </div>
-      <div class="fluent-modal-body">
-        <div>
-          正在为账号 <b id="bindAiKeyEmail" style="color: var(--ms-blue-luminous);"></b> 配置官方免费 API Key。
-        </div>
-        <div style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-size: 12px; color: var(--ms-text-muted); display: flex; gap: 8px; align-items: flex-start;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 2px; color: var(--ms-blue-luminous);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-          <div><b>关于 1500 次/天额度：</b> Google 为每个个人账号在 AI Studio 免费赠送每天 1500 次高速请求（支持 Gemini 1.5/2.0），不扣信用卡。</div>
-        </div>
-        <div>
-          <button class="fluent-btn primary" onclick="openExternalUrl('https://aistudio.google.com/app/apikey')" style="width: 100%; justify-content: center; padding: 8px 12px; gap: 6px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            前往 Google AI Studio 生成 API Key ↗
-          </button>
-        </div>
-        <div>
-          <label style="display: block; font-size: 12px; color: var(--ms-text-muted); margin-bottom: 6px;">粘贴复制的 API Key (以 AIzaSy... 开头):</label>
-          <input type="password" class="fluent-input" id="inputAiKey" placeholder="AIzaSy...">
-        </div>
-        <div id="bindAiKeyNotice" style="font-size: 12px; display: none;"></div>
-      </div>
-      <div class="fluent-modal-actions">
-        <button class="fluent-btn" onclick="closeBindAiKeyModal()">取消</button>
-        <button class="fluent-btn primary" id="btnSubmitBindAiKey" onclick="submitBindAiKey()">测试并保存激活</button>
-      </div>
-    </div>
-  </div>
+  // 弹窗逻辑
+  let currentBindAiEmail = null;
+  function openBindAiKeyModal(email) {
+    currentBindAiEmail = email;
+    document.getElementById('bindAiKeyEmail').textContent = email;
+    document.getElementById('inputAiKey').value = '';
+    document.getElementById('modalBindAiKey').style.display = 'flex';
+  }
+  function closeBindAiKeyModal() { document.getElementById('modalBindAiKey').style.display = 'none'; }
+  async function submitBindAiKey() {
+    const apiKey = document.getElementById('inputAiKey').value.trim();
+    if (!apiKey) return;
+    await fetch(api('/api/account/bind-ai-key'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: currentBindAiEmail, apiKey })
+    });
+    closeBindAiKeyModal();
+    await loadData();
+  }
 
-  <!-- Modal 2: 绑定 Web 会话凭证 -->
-  <div class="fluent-modal-overlay" id="modalBindWebAuth">
-    <div class="fluent-modal">
-      <div class="fluent-modal-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-        绑定 Gemini Web 反代会话 (Pro 会员 / 普通)
-      </div>
-      <div class="fluent-modal-body">
-        <div>
-          正在为账号 <b id="bindWebAuthEmail" style="color: var(--ms-blue-luminous);"></b> 配置网页版反代凭据。
-        </div>
-        <div style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-size: 12px; color: var(--ms-text-muted); display: flex; gap: 8px; align-items: flex-start;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 2px; color: var(--ms-amber);"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-          <div><b>Pro 会员权益说明：</b> 如果此账号充值了每月 $19.99 的 Google One AI Premium (Gemini Advanced)，绑定其网页 Cookie 后可直接通过本地网关无限调用满血 Pro 模型。</div>
-        </div>
-        <div>
-          <button class="fluent-btn" onclick="openExternalUrl('https://gemini.google.com')" style="width: 100%; justify-content: center; padding: 8px 12px; gap: 6px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-            在浏览器打开 gemini.google.com 网页 ↗
-          </button>
-        </div>
-        <div>
-          <label style="display: block; font-size: 12px; color: var(--ms-text-muted); margin-bottom: 6px;">粘贴浏览器 Cookie (如 __Secure-1PSID=... 或完整 Cookie):</label>
-          <textarea class="fluent-input" id="inputWebCookie" rows="3" placeholder="__Secure-1PSID=...; __Secure-1PSIDTS=..."></textarea>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" id="chkIsPro" checked style="cursor: pointer;">
-          <label for="chkIsPro" style="font-size: 12px; cursor: pointer;">该账号已开通 Gemini Advanced (Pro) 付费会员</label>
-        </div>
-        <div id="bindWebAuthNotice" style="font-size: 12px; display: none;"></div>
-      </div>
-      <div class="fluent-modal-actions">
-        <button class="fluent-btn" onclick="closeBindWebAuthModal()">取消</button>
-        <button class="fluent-btn primary" id="btnSubmitBindWebAuth" onclick="submitBindWebAuth()">保存并同步凭据</button>
-      </div>
-    </div>
-  </div>
+  function openBindWebAuthModal(email) {
+    document.getElementById('bindWebAuthEmail').textContent = email;
+    document.getElementById('modalBindWebAuth').style.display = 'flex';
+  }
+  function closeBindWebAuthModal() { document.getElementById('modalBindWebAuth').style.display = 'none'; }
+  async function submitBindWebAuth() {
+    const cookie = document.getElementById('inputWebCookie').value.trim();
+    const isPro = document.getElementById('chkIsPro').checked;
+    if (!cookie) return;
+    await fetch(api('/api/account/bind-web-auth'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: currentActiveEmail || 'active', cookie, isPro })
+    });
+    closeBindWebAuthModal();
+    await loadData();
+  }
 
-  <!-- Modal 3: 可用模型清单 -->
-  <div class="fluent-modal-overlay" id="modalModelsList">
-    <div class="fluent-modal" style="width: 640px;">
-      <div class="fluent-modal-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-        统一网关可用模型与调度规则
-      </div>
-      <div class="fluent-modal-body" style="max-height: 60vh; overflow-y: auto;">
-        <div style="font-size: 12px; color: var(--ms-text-muted);">
-          可在任何支持 OpenAI 格式的客户端（如 Cursor、Cline、ChatBox 等）配置 Base URL 为 <code>http://localhost:3999/v1</code>，并填入以下任意模型名称（点击即可复制）：
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;" id="modelsListContainer">
-          <!-- 动态渲染 -->
-        </div>
-      </div>
-      <div class="fluent-modal-actions">
-        <button class="fluent-btn" onclick="closeModelsModal()">关闭</button>
-      </div>
-    </div>
-  </div>
+  // 初始化
+  loadData();
+  setInterval(loadData, 15000);
+</script>
 </body>
 </html>
-

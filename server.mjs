@@ -1204,6 +1204,16 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
+  if (url.pathname === '/api/accounts') {
+    const pool = loadPool();
+    return sendJSON(Object.values(pool.accounts || {}));
+  }
+
+  if (url.pathname === '/api/history') {
+    const dialogTurns = getAllTurnsList();
+    return sendJSON(dialogTurns);
+  }
+
   if (url.pathname === '/api/refresh-quotas' && req.method === 'POST') {
     const pool = loadPool();
     for (const acc of Object.values(pool.accounts)) {

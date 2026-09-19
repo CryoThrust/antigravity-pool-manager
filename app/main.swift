@@ -506,13 +506,52 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         
         let viewMenuItem = NSMenuItem()
         let viewMenu = NSMenu(title: "视图")
-        let reloadItem = NSMenuItem(title: "刷新", action: #selector(reloadPage), keyEquivalent: "r")
+        
+        let itemHub = NSMenuItem(title: "调度总览", action: #selector(menuSwitchHub), keyEquivalent: "1")
+        itemHub.target = self
+        viewMenu.addItem(itemHub)
+        
+        let itemAccounts = NSMenuItem(title: "账号矩阵", action: #selector(menuSwitchAccounts), keyEquivalent: "2")
+        itemAccounts.target = self
+        viewMenu.addItem(itemAccounts)
+        
+        let itemAudit = NSMenuItem(title: "消耗审计", action: #selector(menuSwitchAudit), keyEquivalent: "3")
+        itemAudit.target = self
+        viewMenu.addItem(itemAudit)
+        
+        let itemModels = NSMenuItem(title: "动态模型库", action: #selector(menuSwitchModels), keyEquivalent: "4")
+        itemModels.target = self
+        viewMenu.addItem(itemModels)
+        
+        let itemDocs = NSMenuItem(title: "接入指引", action: #selector(menuSwitchDocs), keyEquivalent: "5")
+        itemDocs.target = self
+        viewMenu.addItem(itemDocs)
+        
+        viewMenu.addItem(NSMenuItem.separator())
+        
+        let reloadItem = NSMenuItem(title: "刷新控制台", action: #selector(reloadPage), keyEquivalent: "r")
         reloadItem.target = self
         viewMenu.addItem(reloadItem)
         viewMenuItem.submenu = viewMenu
         mainMenu.addItem(viewMenuItem)
         
         NSApp.mainMenu = mainMenu
+    }
+
+    @objc func menuSwitchHub() {
+        webView.evaluateJavaScript("if (window.switchSidebarView) window.switchSidebarView('hub');", completionHandler: nil)
+    }
+    @objc func menuSwitchAccounts() {
+        webView.evaluateJavaScript("if (window.switchSidebarView) window.switchSidebarView('accounts');", completionHandler: nil)
+    }
+    @objc func menuSwitchAudit() {
+        webView.evaluateJavaScript("if (window.switchSidebarView) window.switchSidebarView('audit');", completionHandler: nil)
+    }
+    @objc func menuSwitchModels() {
+        webView.evaluateJavaScript("if (window.switchSidebarView) window.switchSidebarView('models');", completionHandler: nil)
+    }
+    @objc func menuSwitchDocs() {
+        webView.evaluateJavaScript("if (window.switchSidebarView) window.switchSidebarView('docs');", completionHandler: nil)
     }
 
     @objc func reloadPage() {
