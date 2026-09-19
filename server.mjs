@@ -981,9 +981,25 @@ setInterval(() => {
   triggerAccountHealthChecks(false).catch(() => {});
 }, 30000);
 
+// ─── 实时请求流水环形缓冲 (Live IDE Activity Buffer) ─────────────────────────
+const recentRequests = [];
+function recordLiveRequest(entry) {
+  recentRequests.unshift({
+    id: 'req_' + Math.random().toString(36).slice(2, 7),
+    time: new Date().toLocaleTimeString(),
+    timestamp: Date.now(),
+    ...entry
+  });
+  if (recentRequests.length > 20) recentRequests.pop();
+}
+
 async function forwardToWebProxy(req, res, body, model) {
+  const t0 = Date.now();
   const forwardBody = { ...body, model };
   const pool = loadPool();
+
+  const userAgent = req.headers['user-agent'] || '';
+  const clientName = userAgent.includes('Cursor') ? 'Cursor IDE' : (userAgent.includes('Windsurf') ? 'Windsurf' : (userAgent.includes('Mozilla') ? '控制台测试' : 'API 客户端'));
 
   // 筛选可用且已激活 Web Cookie 凭据的小号（优先使用 Pro 账号，按最近使用时间排序轮询）
   const activeWebAccounts = Object.entries(pool.accounts || {})
@@ -1029,7 +1045,21 @@ async function forwardToWebProxy(req, res, body, model) {
       }
     }
     res.end();
+    recordLiveRequest({
+      model,
+      client: clientName,
+      status: upstream.status,
+      latencyMs: Date.now() - t0,
+      account: chosenEmail ? chosenEmail.split('@')[0] : 'Web匿名专线'
+    });
   } catch (err) {
+    recordLiveRequest({
+      model,
+      client: clientName,
+      status: 502,
+      latencyMs: Date.now() - t0,
+      account: '连接失败'
+    });
     res.writeHead(502, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     res.end(JSON.stringify({
       error: {
@@ -1334,13 +1364,95 @@ async function handleHealthAudit(req, res) {
   res.end(JSON.stringify(result, null, 2));
 }
 
+async function handleProbeChannels(req, res) {
+  touchActivity();
+  const pool = loadPool();
+
+  const probeText = (async () => {
+    const t0 = Date.now();
+    try {
+      const resp = await fetch('http://localhost:8085/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gemini-3.8-flash', messages: [{ role: 'user', content: 'hi' }] }),
+        signal: AbortSignal.timeout(6000)
+      });
+      return { ok: resp.ok, latencyMs: Date.now() - t0, desc: 'Web 反代直连 · 满血就绪' };
+    } catch (e) {
+      return { ok: false, latencyMs: Date.now() - t0, desc: '连通超时: ' + e.message };
+    }
+  })();
+
+  const probeThinking = (async () => {
+    const t0 = Date.now();
+    try {
+      const resp = await fetch('http://localhost:8085/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gemini-3.8-live-extended-thinking', messages: [{ role: 'user', content: 'hi' }] }),
+        signal: AbortSignal.timeout(6000)
+      });
+      return { ok: resp.ok, latencyMs: Date.now() - t0, desc: '思维链推导 · 满血就绪' };
+    } catch (e) {
+      return { ok: false, latencyMs: Date.now() - t0, desc: '连通超时: ' + e.message };
+    }
+  })();
+
+  const probePro = (async () => {
+    const t0 = Date.now();
+    try {
+      const resp = await fetch('http://localhost:8085/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gemini-3.1-pro', messages: [{ role: 'user', content: 'hi' }] }),
+        signal: AbortSignal.timeout(6000)
+      });
+      return { ok: resp.ok, latencyMs: Date.now() - t0, desc: '200万上下文 · 优先专线' };
+    } catch (e) {
+      return { ok: false, latencyMs: Date.now() - t0, desc: '连通超时: ' + e.message };
+    }
+  })();
+
+  const probeImage = (async () => {
+    const candidateAccounts = Object.entries(pool.accounts || {})
+      .filter(([_, acc]) => acc.ai_studio?.api_key && acc.ai_studio?.status !== 'exhausted');
+    if (candidateAccounts.length === 0) {
+      return { ok: false, status: 'needs_key', desc: '待绑定 AI Studio Key (点击快速接入)' };
+    }
+    const [email, acc] = candidateAccounts[0];
+    const t0 = Date.now();
+    try {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${acc.ai_studio.api_key}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instances: [{ prompt: 'test' }], parameters: { sampleCount: 1 } }),
+        signal: AbortSignal.timeout(8000)
+      });
+      return { ok: resp.ok, latencyMs: Date.now() - t0, desc: resp.ok ? '官方 Imagen 3 直连就绪' : 'Key 配额或权限受限' };
+    } catch (e) {
+      return { ok: false, latencyMs: Date.now() - t0, desc: '网络异常: ' + e.message };
+    }
+  })();
+
+  const [textRes, thinkRes, proRes, imgRes] = await Promise.all([probeText, probeThinking, probePro, probeImage]);
+
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+  res.end(JSON.stringify({
+    text: textRes,
+    thinking: thinkRes,
+    pro: proRes,
+    image: imgRes,
+    timestamp: new Date().toLocaleTimeString()
+  }));
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost:3999');
 
   // 全局 CORS 跨源访问与预检支持
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -1467,6 +1579,7 @@ const server = http.createServer(async (req, res) => {
       sessionStats,
       conversations,
       dialogTurns,
+      liveRequests: recentRequests.slice(0, 6),
       standby: {
         isStandby: isStandbyMode || (Date.now() - lastActivityTimestamp > STANDBY_IDLE_TIMEOUT_MS),
         idleSeconds: Math.floor((Date.now() - lastActivityTimestamp) / 1000),
@@ -1484,6 +1597,10 @@ const server = http.createServer(async (req, res) => {
         accounts: accountList
       }
     });
+  }
+
+  if (url.pathname === '/api/health/probe-channels' && req.method === 'POST') {
+    return handleProbeChannels(req, res);
   }
 
   if (url.pathname === '/api/health/probe-all') {
