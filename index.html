@@ -748,6 +748,29 @@
             <div style="font-size: 13px; font-weight: 600;" id="gatewayWebProVal">载入中...</div>
           </div>
         </div>
+
+        <!-- ⚡ 统一网关极速单测 (Live Tester) -->
+        <div style="margin-top: 12px; background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div style="font-size:12px; font-weight:600; color:var(--ms-text-high); display:flex; align-items:center; gap:6px;">
+              <span>⚡ 网关极速单测 (Live Tester)</span>
+              <span class="status-badge status-active" style="font-size:10px;">● 秒级直连无需配置</span>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <select id="quickTestModel" class="fluent-input" style="font-size:12px; padding:3px 8px; height:28px; background:var(--ms-surface-elevated); color:var(--ms-text-high); border:1px solid var(--ms-border-card);">
+                <option value="gemini-3.7-flash" selected>🚀 Gemini 3.7 Flash (Web反代·推荐)</option>
+                <option value="gemini-3.5-flash-thinking">🔬 Gemini 3.5 Flash Thinking (深度思考 20k)</option>
+                <option value="gemini-3.1-pro">👑 Gemini 3.1 Pro (Pro模型)</option>
+                <option value="gemini-2.0-flash">⚡ Gemini 2.0 Flash (官方API/弹性降级)</option>
+                <option value="gemini-1.5-pro">💎 Gemini 1.5 Pro (官方API/弹性降级)</option>
+              </select>
+              <button class="fluent-btn mini primary" id="btnRunQuickTest" onclick="runGatewayQuickTest()" style="font-weight:600; height:28px; padding:0 12px;">
+                ▶ 立即单测
+              </button>
+            </div>
+          </div>
+          <div id="quickTestOutput" style="display:none; margin-top:10px; background: rgba(0,0,0,0.35); border: 1px solid var(--ms-border-card); border-radius: 4px; padding: 10px 14px; font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); white-space: pre-wrap; line-height: 1.6; max-height: 160px; overflow-y: auto;"></div>
+        </div>
       </section>
 
       <!-- 状态与自动化条 -->
@@ -1152,7 +1175,7 @@
           aiStudioCol = `
             <div style="display:flex; flex-direction:column; gap:3px;">
               <div style="display:flex; align-items:center; gap:4px;">
-                <span class="status-badge status-active" style="font-size:10px;">● 已激活</span>
+                <span class="status-badge status-active" style="font-size:10px;">● 已激活独立Key</span>
                 <span style="font-size:11px; color:var(--ms-text-muted); font-family:var(--font-mono);">${used}/${limit}</span>
               </div>
               <div style="display:flex; gap:4px;">
@@ -1163,13 +1186,9 @@
           `;
         } else {
           aiStudioCol = `
-            <div style="display:flex; align-items:center; gap:4px;">
-              <button class="fluent-btn mini primary" onclick="triggerAutoAuth('${acc.email}')" style="font-size:11px; padding:3px 8px;" title="全自动从 AI Studio 捕获并绑定 1500 次 API Key">
-                ⚡ 自动绑定
-              </button>
-              <button class="fluent-btn mini" onclick="openBindAiKeyModal('${acc.email}')" style="font-size:10px; padding:3px 5px; color:var(--ms-text-muted);" title="手动输入 API Key">
-                手动
-              </button>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="status-badge" style="background:rgba(255,255,255,0.06); color:var(--ms-text-muted); font-size:10px;">● 共享网关通道</span>
+              <button class="fluent-btn mini" onclick="openBindAiKeyModal('${acc.email}')" style="font-size:10px; padding:2px 6px; color:var(--ms-text-muted);">+ 独立Key</button>
             </div>
           `;
         }
@@ -1180,24 +1199,17 @@
           const isPro = !!acc.web_auth.is_pro;
           webAuthCol = `
             <div style="display:flex; flex-direction:column; gap:3px;">
-              <span class="status-badge" style="background:${isPro ? 'rgba(245, 158, 11, 0.15); color:#f59e0b;' : 'rgba(255,255,255,0.06); color:var(--ms-text-muted);'} font-size:10px;">
-                ${isPro ? '🌟 Pro 会员' : '● 普通会话'}
+              <span class="status-badge" style="background:${isPro ? 'rgba(245, 158, 11, 0.15); color:#f59e0b;' : 'rgba(16, 185, 129, 0.12); color:#10b981;'} font-size:10px;">
+                ${isPro ? '🌟 Pro 会员专属' : '● 会话已挂载'}
               </span>
-              <div style="display:flex; gap:4px;">
-                <button class="fluent-btn mini" onclick="triggerAutoAuth('${acc.email}')" title="自动重录/刷新 Web Cookie">刷新</button>
-                <button class="fluent-btn mini" onclick="openBindWebAuthModal('${acc.email}', ${isPro})">改绑</button>
-              </div>
+              <button class="fluent-btn mini" onclick="openBindWebAuthModal('${acc.email}', ${isPro})" style="font-size:10px; padding:2px 6px;">改绑</button>
             </div>
           `;
         } else {
           webAuthCol = `
-            <div style="display:flex; align-items:center; gap:4px;">
-              <button class="fluent-btn mini primary" onclick="triggerAutoAuth('${acc.email}')" style="font-size:11px; padding:3px 8px;" title="全自动捕获 Gemini 网页会话 Cookie">
-                ⚡ 自动同步
-              </button>
-              <button class="fluent-btn mini" onclick="openBindWebAuthModal('${acc.email}')" style="font-size:10px; padding:3px 5px; color:var(--ms-text-muted);" title="手动粘贴 Cookie">
-                手动
-              </button>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="status-badge status-active" style="font-size:10px;">● 共享反代网关</span>
+              <button class="fluent-btn mini" onclick="openBindWebAuthModal('${acc.email}')" style="font-size:10px; padding:2px 6px; color:var(--ms-text-muted);">+ 独立Pro</button>
             </div>
           `;
         }
@@ -1246,7 +1258,6 @@
         html += '  <td>' + webAuthCol + '</td>';
 
         html += '  <td style="text-align: right;">';
-        html += '    <button class="fluent-btn mini" onclick="triggerAutoAuth(\'' + acc.email + '\')" style="margin-right: 4px; background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.35); color: #60a5fa;" title="一键全自动同步反代与 1500 API">⚡ 全自动同步</button>';
         if (!isActive) {
           html += '    <button class="fluent-btn mini" onclick="switchAccount(\'' + acc.email + '\', this)" style="margin-right: 4px;">设为主凭据</button>';
         }
@@ -1367,6 +1378,65 @@
         window.webkit.messageHandlers.startAutoAuth.postMessage({ mode: 'new' });
       } else {
         addNewAccount();
+      }
+    }
+
+    async function runGatewayQuickTest() {
+      const model = document.getElementById('quickTestModel').value;
+      const btn = document.getElementById('btnRunQuickTest');
+      const out = document.getElementById('quickTestOutput');
+      out.style.display = 'block';
+      out.innerHTML = '<span style="color:var(--ms-blue-luminous);">[发起请求] 正在调用统一网关 /v1/chat/completions (模型: ' + model + ')...</span>\n';
+      btn.disabled = true;
+      btn.textContent = '⏳ 测试中...';
+      const startTime = Date.now();
+
+      try {
+        const res = await fetch(api('/v1/chat/completions'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: '你好，请用一句话介绍你自己并给出当前的响应状态。' }],
+            stream: true
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.text();
+          out.innerHTML += '\n<span style="color:var(--ms-red);">[调用失败 ' + res.status + ']: ' + err + '</span>';
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let replyText = '';
+        out.innerHTML = '<span style="color:#10b981;">[连接成功] 正在流式打字输出...</span>\n\n';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                const delta = data.choices?.[0]?.delta?.content || '';
+                replyText += delta;
+                out.textContent = replyText;
+                out.scrollTop = out.scrollHeight;
+              } catch(e) {}
+            }
+          }
+        }
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+        out.innerHTML = replyText + '\n\n<span style="color:#10b981; font-size:11px; font-weight:600;">✓ 测试成功通过！耗时 ' + elapsed + 's · 响应完整无风控</span>';
+      } catch (err) {
+        out.innerHTML += '\n<span style="color:var(--ms-red);">[异常]: ' + err.message + '</span>';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '▶ 立即单测';
       }
     }
 
