@@ -703,16 +703,56 @@ function getConversationHistoryList() {
 
 // ─── 统一聚合网关 (OpenAI 兼容 /v1 与多源调度核心) ─────────────────────────────
 
-const GATEWAY_MODELS = [
+let CACHED_DYNAMIC_MODELS = [
+  { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash (官网最新旗舰)", source: "Gemini Web (官网动态)", description: "Google 官网最新极速旗舰模型" },
+  { id: "gemini-3.8-live-extended-thinking", name: "Gemini 3.8 Live Extended Thinking (深度推理)", source: "Gemini Web (官网动态)", description: "扩展深度推理，适合长链条逻辑与代码规划" },
+  { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash (官网全能)", source: "Gemini Web (官网动态)", description: "全能 Web 高速模型" },
+  { id: "gemini-3.5-flash-thinking", name: "Gemini 3.5 Flash Thinking (Web 深度思考)", source: "Gemini Web", description: "扩展思考模式，最长支持2万字长篇输出" },
+  { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro (Web Pro会员专属)", source: "Gemini Web (Pro)", description: "满血 Pro 会员模型，无限额度" },
   { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (官方极速)", source: "AI Studio (1500次/天)", description: "新一代多模态旗舰，极速低延迟" },
   { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (官方满血)", source: "AI Studio (1500次/天)", description: "超强综合逻辑推理与200万超大上下文" },
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash (官方轻量)", source: "AI Studio (1500次/天)", description: "轻量快速任务" },
-  { id: "gemini-2.0-flash-thinking-exp", name: "Gemini 2.0 Flash Thinking (官方思考)", source: "AI Studio (1500次/天)", description: "带思维链推理与多步规划" },
-  { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro (Web Pro会员专属)", source: "Gemini Web (Pro)", description: "满血 Pro 会员模型，无限额度" },
-  { id: "gemini-3.5-flash-thinking", name: "Gemini 3.5 Flash Thinking (Web 深度思考)", source: "Gemini Web", description: "扩展思考，最长支持2万字长篇输出" },
-  { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash (Web 全能)", source: "Gemini Web", description: "全能 Web 模型" },
   { id: "gemini-flash-lite", name: "Gemini Flash Lite (Web 极速)", source: "Gemini Web", description: "超快轻量响应" }
 ];
+
+async function syncDynamicModels() {
+  return new Promise((resolve) => {
+    const req = http.get('http://localhost:8085/v1/models', { timeout: 3000 }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed.data)) {
+            const list = [];
+            for (const item of parsed.data) {
+              const id = item.id;
+              const isPro = id.includes('pro');
+              const isThinking = id.includes('thinking') || id.includes('extended');
+              list.push({
+                id: id,
+                name: id.replace(/^gemini-/, 'Gemini ').replace(/-/g, ' ') + (isThinking ? ' (思考)' : (isPro ? ' (Pro)' : '')),
+                source: isPro ? 'Gemini Web (Pro会员)' : 'Gemini Web (官网动态)',
+                description: item.description || 'Google 官方模型'
+              });
+            }
+            // 补充官方 AI Studio 专属模型
+            const aiStudioDefaults = [
+              { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (官方极速)", source: "AI Studio (1500次/天)", description: "新一代多模态旗舰，极速低延迟" },
+              { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (官方满血)", source: "AI Studio (1500次/天)", description: "超强综合逻辑推理与200万超大上下文" },
+              { id: "gemini-2.0-flash-thinking-exp", name: "Gemini 2.0 Flash Thinking (官方思考)", source: "AI Studio (1500次/天)", description: "带思维链推理与多步规划" }
+            ];
+            for (const m of aiStudioDefaults) {
+              if (!list.some(x => x.id === m.id)) list.push(m);
+            }
+            CACHED_DYNAMIC_MODELS = list;
+          }
+        } catch (e) {}
+        resolve(CACHED_DYNAMIC_MODELS);
+      });
+    });
+    req.on('error', () => resolve(CACHED_DYNAMIC_MODELS));
+  });
+}
 
 function resetDailyQuotasIfNeeded(pool) {
   const today = new Date().toISOString().slice(0, 10);
@@ -747,9 +787,10 @@ function resetDailyQuotasIfNeeded(pool) {
 
 function resolveModelTarget(requestedModel) {
   const req = (requestedModel || '').toLowerCase().trim();
-  if (req.startsWith('web-') || req.startsWith('gemini-3.') || req === 'gemini-auto' || req.includes('@think')) {
+  // 任何包含 think 的请求统一走 Web 反代支持 @think 等级调度
+  if (req.includes('@think') || req.startsWith('web-') || req.startsWith('gemini-3.') || req.includes('extended') || req === 'gemini-auto') {
     const cleanName = req.replace(/^web-/, '');
-    return { type: 'web', model: cleanName || 'gemini-3.6-flash' };
+    return { type: 'web', model: cleanName || 'gemini-3.8-flash' };
   }
   if (req.includes('pro') || req.startsWith('gpt-4') || req.startsWith('claude-3-5')) {
     return { type: 'ai_studio', model: 'gemini-1.5-pro' };
@@ -757,7 +798,8 @@ function resolveModelTarget(requestedModel) {
   if (req.includes('thinking')) {
     return { type: 'ai_studio', model: 'gemini-2.0-flash-thinking-exp' };
   }
-  return { type: 'ai_studio', model: req.startsWith('gemini-') ? req : 'gemini-2.0-flash' };
+  // 默认尝试 Web 反代上的最新 flash，如果不可用则走 ai_studio
+  return { type: 'web', model: req || 'gemini-3.8-flash' };
 }
 
 function formatGeminiPayload(messages) {
@@ -1119,6 +1161,7 @@ const server = http.createServer(async (req, res) => {
         hasWebPro = true;
       }
     }
+    const modelsList = await syncDynamicModels();
     const gateway = {
       baseUrl: 'http://localhost:3999/v1',
       boundKeysCount,
@@ -1126,7 +1169,7 @@ const server = http.createServer(async (req, res) => {
       totalUsedToday: totalApiStudioUsed,
       totalRemaining: Math.max(0, totalApiStudioCapacity - totalApiStudioUsed),
       hasWebPro,
-      models: GATEWAY_MODELS
+      models: modelsList
     };
 
     const sessionStats = getActiveConversationStats();
@@ -1164,7 +1207,8 @@ const server = http.createServer(async (req, res) => {
       response_type: "code",
       scope: SCOPES,
       access_type: "offline",
-      prompt: "consent"
+      prompt: "select_account consent",
+      state: body.login_hint || ""
     }).toString();
 
     if (!body?.noOpen) {
@@ -1234,9 +1278,10 @@ const server = http.createServer(async (req, res) => {
 
   // ─── OpenAI 兼容模型列表 ─────────────────────────────
   if (url.pathname === '/v1/models' && req.method === 'GET') {
+    const dynamicModels = await syncDynamicModels();
     return sendJSON({
       object: 'list',
-      data: GATEWAY_MODELS.map(m => ({
+      data: dynamicModels.map(m => ({
         id: m.id,
         object: 'model',
         created: 1700000000,

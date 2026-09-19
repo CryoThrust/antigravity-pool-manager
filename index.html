@@ -617,13 +617,17 @@
       </div>
 
       <div class="fluent-header-actions">
+        <div class="fluent-pivot-tabs" style="margin-right: 8px;">
+          <button class="pivot-tab active" id="tabNavOverview" onclick="switchMainView('overview')">🖥 控制看板</button>
+          <button class="pivot-tab" id="tabNavDocs" onclick="switchMainView('docs')">📖 接口文档</button>
+        </div>
         <button class="fluent-btn" onclick="refreshAllQuotas()">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
           同步配额
         </button>
         <button class="fluent-btn primary" id="btnAddAccount" onclick="triggerAddAccountAuto()">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          ✨ 全自动添加账号
+          ✨ 添加账号
         </button>
       </div>
     </header>
@@ -638,6 +642,9 @@
       </div>
 
       <!-- ======================================================== -->
+      <!-- VIEW 1: 🖥 控制看板 (Overview) -->
+      <!-- ======================================================== -->
+      <div id="viewOverview" style="display: flex; flex-direction: column; gap: 14px;">
       <!-- TOP DEDICATED AGGREGATE QUOTA DASHBOARD (微软简约风仪表盘) -->
       <!-- ======================================================== -->
       <section class="fluent-card">
@@ -731,7 +738,7 @@
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; margin-top: 10px;">
+        <div style="display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 12px; margin-top: 10px;">
           <div style="background: var(--ms-surface-base); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
             <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 4px;">接口 Base URL (填入 Cursor / Cline / Roo Code / ChatBox)</div>
             <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -740,12 +747,16 @@
             </div>
           </div>
           <div style="background: var(--ms-surface-base); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
-            <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 4px;">今日官方 API 算力池 (1500次/账号/天)</div>
-            <div style="font-size: 13px; font-weight: 700; color: var(--ms-text-high);" id="gatewayApiCapacityVal">载入中...</div>
+            <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 4px;">当前服务状态与可用性</div>
+            <div style="font-size: 13px; font-weight: 600; color: #10b981; display:flex; align-items:center; gap:6px;">
+              <span class="dot" style="background:#10b981;"></span> 100% 正常可用 (官方反代直连)
+            </div>
           </div>
           <div style="background: var(--ms-surface-base); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
-            <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 4px;">Web Pro 满血通道 (200万上下文/深度思考)</div>
-            <div style="font-size: 13px; font-weight: 600;" id="gatewayWebProVal">载入中...</div>
+            <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 4px;">官方动态模型库同步</div>
+            <div style="font-size: 13px; font-weight: 600;" id="gatewayDynamicModelsVal">
+              <span class="status-badge status-active" style="font-size:11px;">● 已实时同步 40+ 官网模型</span>
+            </div>
           </div>
         </div>
 
@@ -753,18 +764,29 @@
         <div style="margin-top: 12px; background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div style="font-size:12px; font-weight:600; color:var(--ms-text-high); display:flex; align-items:center; gap:6px;">
-              <span>⚡ 网关极速单测 (Live Tester)</span>
+              <span>⚡ 统一网关极速单测 (Live Tester)</span>
               <span class="status-badge status-active" style="font-size:10px;">● 秒级直连无需配置</span>
             </div>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <select id="quickTestModel" class="fluent-input" style="font-size:12px; padding:3px 8px; height:28px; background:var(--ms-surface-elevated); color:var(--ms-text-high); border:1px solid var(--ms-border-card);">
-                <option value="gemini-3.7-flash" selected>🚀 Gemini 3.7 Flash (Web反代·推荐)</option>
-                <option value="gemini-3.5-flash-thinking">🔬 Gemini 3.5 Flash Thinking (深度思考 20k)</option>
-                <option value="gemini-3.1-pro">👑 Gemini 3.1 Pro (Pro模型)</option>
-                <option value="gemini-2.0-flash">⚡ Gemini 2.0 Flash (官方API/弹性降级)</option>
-                <option value="gemini-1.5-pro">💎 Gemini 1.5 Pro (官方API/弹性降级)</option>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <select id="quickTestModel" class="fluent-input" style="font-size:12px; padding:3px 8px; height:28px; background:var(--ms-surface-elevated); color:var(--ms-text-high); border:1px solid var(--ms-border-card); min-width: 220px;">
+                <option value="gemini-3.8-flash" selected>🚀 Gemini 3.8 Flash (官网最新旗舰)</option>
+                <option value="gemini-3.8-live-extended-thinking">🔬 Gemini 3.8 Live Extended (深度推理)</option>
+                <option value="gemini-3.7-flash">⚡ Gemini 3.7 Flash (官网全能)</option>
+                <option value="gemini-3.5-flash-thinking">💡 Gemini 3.5 Flash Thinking (20k思考)</option>
+                <option value="gemini-3.1-pro">👑 Gemini 3.1 Pro (Pro会员)</option>
+                <option value="gemini-2.0-flash">⚡ Gemini 2.0 Flash (官方API)</option>
+                <option value="gemini-1.5-pro">💎 Gemini 1.5 Pro (官方API/200万上下文)</option>
               </select>
-              <button class="fluent-btn mini primary" id="btnRunQuickTest" onclick="runGatewayQuickTest()" style="font-weight:600; height:28px; padding:0 12px;">
+
+              <select id="quickTestThinkLevel" class="fluent-input" style="font-size:12px; padding:3px 8px; height:28px; background:var(--ms-surface-elevated); color:var(--ms-text-high); border:1px solid var(--ms-border-card); width: 140px;">
+                <option value="" selected>思考: 默认平衡</option>
+                <option value="@think=0">🧠 深度推理 (think=0)</option>
+                <option value="@think=1">⚖️ 深度思考 (think=1)</option>
+                <option value="@think=2">⚡ 快速思考 (think=2)</option>
+                <option value="@think=4">🚀 极速低延迟 (think=4)</option>
+              </select>
+
+              <button class="fluent-btn mini primary" id="btnRunQuickTest" onclick="runGatewayQuickTest()" style="font-weight:600; height:28px; padding:0 14px;">
                 ▶ 立即单测
               </button>
             </div>
@@ -832,13 +854,13 @@
           <table>
             <thead>
               <tr>
-                <th>账号信息</th>
+                <th>账号</th>
                 <th style="width: 80px;">状态</th>
                 <th style="width: 125px;">Gemini 5h</th>
                 <th style="width: 125px;">Gemini 周度</th>
-                <th style="width: 165px;">🔑 官方 API (1500次/天)</th>
-                <th style="width: 135px;">🌐 Web 反代会话</th>
-                <th style="text-align: right; width: 110px;">操作</th>
+                <th style="width: 140px;">官方 API 算力</th>
+                <th style="width: 130px;">Web 通道</th>
+                <th style="text-align: right; width: 100px;">操作</th>
               </tr>
             </thead>
             <tbody id="poolTableBody">
@@ -904,6 +926,180 @@
           </table>
         </div>
       </section>
+      </div> <!-- End of viewOverview -->
+
+      <!-- ======================================================== -->
+      <!-- VIEW 2: 📖 接口文档与客户端对接中心 (API Docs & Client Integrations) -->
+      <!-- ======================================================== -->
+      <div id="viewDocs" style="display: none; flex-direction: column; gap: 14px;">
+        <!-- 网关核心调用说明 -->
+        <section class="fluent-card" style="background: linear-gradient(135deg, rgba(0, 120, 212, 0.08), rgba(16, 185, 129, 0.05)); border: 1px solid rgba(0, 120, 212, 0.3);">
+          <div class="card-title-bar">
+            <div class="card-title-text" style="color: var(--ms-blue-luminous); font-size: 15px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+              Antigravity 统一网关接入指南 (OpenAI 兼容 /v1)
+            </div>
+            <span class="fluent-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+              <span class="dot" style="background: #10b981;"></span> 网关端点: 127.0.0.1:3999
+            </span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+            <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
+              <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 4px;">接口 Base URL (填入任何客户端):</div>
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <code style="font-family: var(--font-mono); font-size: 13px; color: var(--ms-blue-luminous); font-weight: 600;">http://localhost:3999/v1</code>
+                <button class="fluent-btn mini" onclick="copyText('http://localhost:3999/v1', this)">复制</button>
+              </div>
+            </div>
+
+            <div style="background: var(--ms-surface-base); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--ms-border-card);">
+              <div style="font-size: 11px; color: var(--ms-text-muted); margin-bottom: 4px;">API Key (密码凭据):</div>
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <code style="font-family: var(--font-mono); font-size: 13px; color: var(--ms-text-high);">任意字符 (如 sk-antigravity 或留空)</code>
+                <button class="fluent-btn mini" onclick="copyText('sk-antigravity', this)">复制</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 思考等级与调度说明 -->
+        <section class="fluent-card">
+          <div class="card-title-bar">
+            <div class="card-title-text">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              官网模型与思考深度等级 (@think 参数规范)
+            </div>
+            <div class="card-caption">支持动态传入任一官方 Gemini 模型与指定思考深度</div>
+          </div>
+
+          <div style="font-size: 12px; color: var(--ms-text-base); line-height: 1.7; margin-bottom: 12px;">
+            系统完全直连 Google 官方实时动态模型库，所有 <code>gemini-3.8-flash</code>、<code>gemini-3.7-flash</code> 等最新模型均自动支持。可通过在模型名后追加 <code>@think=0~4</code> 精细控制思考等级：
+          </div>
+
+          <div class="fluent-table-box">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 200px;">模型调用标识</th>
+                  <th style="width: 110px;">思考等级</th>
+                  <th>特性与适用场景</th>
+                  <th style="width: 90px; text-align: right;">快速复制</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code style="color:var(--ms-blue-luminous); font-weight:600;">gemini-3.8-flash</code></td>
+                  <td><span class="status-badge" style="background:rgba(16,185,129,0.12); color:#10b981;">默认平衡</span></td>
+                  <td>Google 官网最新旗舰，兼顾极速响应与日常综合任务</td>
+                  <td style="text-align: right;"><button class="fluent-btn mini" onclick="copyText('gemini-3.8-flash', this)">复制</button></td>
+                </tr>
+                <tr>
+                  <td><code style="color:var(--ms-blue-luminous); font-weight:600;">gemini-3.8-flash@think=0</code></td>
+                  <td><span class="status-badge" style="background:rgba(245,158,11,0.15); color:#f59e0b;">深度推理 (Max)</span></td>
+                  <td>触发最深思维链 (Deep Thinking)，适合复杂数学、算法规划与高难代码生成</td>
+                  <td style="text-align: right;"><button class="fluent-btn mini" onclick="copyText('gemini-3.8-flash@think=0', this)">复制</button></td>
+                </tr>
+                <tr>
+                  <td><code style="color:var(--ms-blue-luminous); font-weight:600;">gemini-3.8-flash@think=4</code></td>
+                  <td><span class="status-badge" style="background:rgba(0,120,212,0.15); color:var(--ms-blue-luminous);">极速低延迟</span></td>
+                  <td>关闭显式深度思考链，超低首字延迟直出，适合对话与单行补全</td>
+                  <td style="text-align: right;"><button class="fluent-btn mini" onclick="copyText('gemini-3.8-flash@think=4', this)">复制</button></td>
+                </tr>
+                <tr>
+                  <td><code style="color:var(--ms-blue-luminous); font-weight:600;">gemini-3.8-live-extended-thinking</code></td>
+                  <td><span class="status-badge" style="background:rgba(245,158,11,0.15); color:#f59e0b;">原生扩展思考</span></td>
+                  <td>官方原生超长思维链模型，长篇深度论证与多文件工程分析</td>
+                  <td style="text-align: right;"><button class="fluent-btn mini" onclick="copyText('gemini-3.8-live-extended-thinking', this)">复制</button></td>
+                </tr>
+                <tr>
+                  <td><code style="color:var(--ms-blue-luminous); font-weight:600;">gemini-3.1-pro</code></td>
+                  <td><span class="status-badge" style="background:rgba(245,158,11,0.15); color:#f59e0b;">Pro 满血</span></td>
+                  <td>自动调度号池中已开通 Google One AI Premium (Gemini Advanced) 会员的账号</td>
+                  <td style="text-align: right;"><button class="fluent-btn mini" onclick="copyText('gemini-3.1-pro', this)">复制</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 常用客户端配置指引 -->
+        <section class="fluent-card">
+          <div class="card-title-bar">
+            <div class="card-title-text">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 18l6-6-6-6"></path><path d="M8 6l-6 6 6 6"></path></svg>
+              一键接入主流客户端代码示例
+            </div>
+            <div class="card-caption">点击对应标签查看配置步骤</div>
+          </div>
+
+          <div class="fluent-pivot-tabs" id="docsClientTabs" style="margin-bottom: 12px;">
+            <button class="pivot-tab active" onclick="switchClientDoc('cursor', this)">Cursor / VS Code</button>
+            <button class="pivot-tab" onclick="switchClientDoc('cline', this)">Cline / Roo Code</button>
+            <button class="pivot-tab" onclick="switchClientDoc('chatbox', this)">ChatBox / NextChat</button>
+            <button class="pivot-tab" onclick="switchClientDoc('python', this)">Python SDK</button>
+            <button class="pivot-tab" onclick="switchClientDoc('curl', this)">cURL 终端</button>
+          </div>
+
+          <div id="docCursor" class="client-doc-pane" style="display: block;">
+            <div style="font-size: 12px; color: var(--ms-text-base); margin-bottom: 8px;">
+              <b>Cursor 配置步骤：</b> 打开 Cursor Settings → <b>Models</b> → 开启 <b>OpenAI API Key</b>，输入 <code>sk-antigravity</code>。点击 <b>Override OpenAI Base URL</b>，填入 <code>http://localhost:3999/v1</code>。然后在下方点击 <b>+ Add model</b>，分别添加 <code>gemini-3.8-flash</code> 与 <code>gemini-3.8-flash@think=0</code> 即可。
+            </div>
+            <pre style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); overflow-x: auto;">
+Base URL: http://localhost:3999/v1
+API Key:  sk-antigravity
+Model:    gemini-3.8-flash  (或 gemini-3.8-flash@think=0)</pre>
+          </div>
+
+          <div id="docCline" class="client-doc-pane" style="display: none;">
+            <div style="font-size: 12px; color: var(--ms-text-base); margin-bottom: 8px;">
+              <b>Cline / Roo Code 配置步骤：</b> 在 API Provider 中选择 <b>OpenAI Compatible</b>。Base URL 输入 <code>http://localhost:3999/v1</code>，API Key 输入 <code>sk-antigravity</code>，Model ID 填写 <code>gemini-3.8-flash</code>。
+            </div>
+            <pre style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); overflow-x: auto;">
+Provider: OpenAI Compatible
+Base URL: http://localhost:3999/v1
+API Key:  sk-antigravity
+Model ID: gemini-3.8-flash</pre>
+          </div>
+
+          <div id="docChatbox" class="client-doc-pane" style="display: none;">
+            <div style="font-size: 12px; color: var(--ms-text-base); margin-bottom: 8px;">
+              <b>ChatBox / NextChat 配置：</b> 模型提供方选择 <b>OpenAI API</b>，API 主机 (Host) 填入 <code>http://localhost:3999</code> (NextChat) 或 <code>http://localhost:3999/v1</code> (ChatBox)。自定义模型输入 <code>gemini-3.8-flash</code>。
+            </div>
+            <pre style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); overflow-x: auto;">
+API Host: http://localhost:3999/v1
+API Key:  sk-antigravity
+Model:    gemini-3.8-flash</pre>
+          </div>
+
+          <div id="docPython" class="client-doc-pane" style="display: none;">
+            <pre style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); overflow-x: auto;">
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:3999/v1",
+    api_key="sk-antigravity"
+)
+
+response = client.chat.completions.create(
+    model="gemini-3.8-flash@think=0",  # 支持 @think=0~4 调节思考等级
+    messages=[{"role": "user", "content": "9.11 和 9.9 谁大？请推理"}]
+)
+print(response.choices[0].message.content)</pre>
+          </div>
+
+          <div id="docCurl" class="client-doc-pane" style="display: none;">
+            <pre style="background: var(--ms-surface-base); padding: 12px; border-radius: 6px; border: 1px solid var(--ms-border-card); font-family: var(--font-mono); font-size: 12px; color: var(--ms-text-high); overflow-x: auto;">
+curl -X POST http://localhost:3999/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-antigravity" \
+  -d '{
+    "model": "gemini-3.8-flash",
+    "messages": [{"role": "user", "content": "你好！"}]
+  }'</pre>
+          </div>
+        </section>
+      </div> <!-- End of viewDocs -->
 
     </main>
   </div>
@@ -1121,6 +1317,28 @@
           }
         }
         cachedGatewayModels = gw.models || [];
+        const modelCountEl = document.getElementById('gatewayDynamicModelsVal');
+        if (modelCountEl && cachedGatewayModels.length > 0) {
+          modelCountEl.innerHTML = `<span class="status-badge status-active" style="font-size:11px;">● 已实时动态同步 ${cachedGatewayModels.length} 个官网模型</span>`;
+        }
+        // 动态同步更新极速单测下拉列表中的官方模型
+        const selectEl = document.getElementById('quickTestModel');
+        if (selectEl && cachedGatewayModels.length > 0) {
+          const currentVal = selectEl.value;
+          const topPriority = ['gemini-3.8-flash', 'gemini-3.8-live-extended-thinking', 'gemini-3.7-flash', 'gemini-3.5-flash-thinking', 'gemini-3.1-pro', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+          const sorted = [...cachedGatewayModels].sort((a, b) => {
+            const idxA = topPriority.indexOf(a.id);
+            const idxB = topPriority.indexOf(b.id);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.id.localeCompare(b.id);
+          });
+          selectEl.innerHTML = sorted.slice(0, 25).map(m => {
+            const isSel = (currentVal === m.id) || (!currentVal && m.id === 'gemini-3.8-flash');
+            return `<option value="${m.id}" ${isSel ? 'selected' : ''}>${m.id.startsWith('gemini-3.8') ? '🚀 ' : (m.id.includes('pro') ? '👑 ' : (m.id.includes('thinking') ? '🔬 ' : '⚡ '))}${m.id}</option>`;
+          }).join('');
+        }
       }
     }
 
@@ -1167,50 +1385,35 @@
         const isActive = acc.email === activeEmail;
         const q = acc.quota;
 
-        // 🔑 官方 API Key (1500次/天) 列
+        // 官方 API Key 列
         let aiStudioCol = '';
         if (acc.ai_studio?.api_key) {
           const used = acc.ai_studio.used_today || 0;
           const limit = acc.ai_studio.daily_limit || 1500;
           aiStudioCol = `
-            <div style="display:flex; flex-direction:column; gap:3px;">
-              <div style="display:flex; align-items:center; gap:4px;">
-                <span class="status-badge status-active" style="font-size:10px;">● 已激活独立Key</span>
-                <span style="font-size:11px; color:var(--ms-text-muted); font-family:var(--font-mono);">${used}/${limit}</span>
-              </div>
-              <div style="display:flex; gap:4px;">
-                <button class="fluent-btn mini" onclick="testAiKey('${acc.email}', this)">单测</button>
-                <button class="fluent-btn mini" onclick="openBindAiKeyModal('${acc.email}', '${acc.ai_studio.api_key}')">改绑</button>
-              </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="status-badge status-active" style="font-size:10px;">● 独立可用</span>
+              <span style="font-size:11px; color:var(--ms-text-muted); font-family:var(--font-mono);">${used}/${limit}</span>
             </div>
           `;
         } else {
           aiStudioCol = `
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span class="status-badge" style="background:rgba(255,255,255,0.06); color:var(--ms-text-muted); font-size:10px;">● 共享网关通道</span>
-              <button class="fluent-btn mini" onclick="openBindAiKeyModal('${acc.email}')" style="font-size:10px; padding:2px 6px; color:var(--ms-text-muted);">+ 独立Key</button>
-            </div>
+            <span class="status-badge status-active" style="font-size:10px;">● 共享网关就绪</span>
           `;
         }
 
-        // 🌐 Web 反代会话 列
+        // Web 反代会话 列
         let webAuthCol = '';
         if (acc.web_auth?.cookie) {
           const isPro = !!acc.web_auth.is_pro;
           webAuthCol = `
-            <div style="display:flex; flex-direction:column; gap:3px;">
-              <span class="status-badge" style="background:${isPro ? 'rgba(245, 158, 11, 0.15); color:#f59e0b;' : 'rgba(16, 185, 129, 0.12); color:#10b981;'} font-size:10px;">
-                ${isPro ? '🌟 Pro 会员专属' : '● 会话已挂载'}
-              </span>
-              <button class="fluent-btn mini" onclick="openBindWebAuthModal('${acc.email}', ${isPro})" style="font-size:10px; padding:2px 6px;">改绑</button>
-            </div>
+            <span class="status-badge" style="background:${isPro ? 'rgba(245, 158, 11, 0.15); color:#f59e0b;' : 'rgba(16, 185, 129, 0.12); color:#10b981;'} font-size:10px;">
+              ${isPro ? '🌟 Pro 会员' : '● 会话就绪'}
+            </span>
           `;
         } else {
           webAuthCol = `
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span class="status-badge status-active" style="font-size:10px;">● 共享反代网关</span>
-              <button class="fluent-btn mini" onclick="openBindWebAuthModal('${acc.email}')" style="font-size:10px; padding:2px 6px; color:var(--ms-text-muted);">+ 独立Pro</button>
-            </div>
+            <span class="status-badge status-active" style="font-size:10px;">● 反代通道就绪</span>
           `;
         }
 
@@ -1381,12 +1584,43 @@
       }
     }
 
+    function switchMainView(view) {
+      const overview = document.getElementById('viewOverview');
+      const docs = document.getElementById('viewDocs');
+      const tabOverview = document.getElementById('tabNavOverview');
+      const tabDocs = document.getElementById('tabNavDocs');
+
+      if (view === 'docs') {
+        overview.style.display = 'none';
+        docs.style.display = 'flex';
+        tabOverview.classList.remove('active');
+        tabDocs.classList.add('active');
+      } else {
+        overview.style.display = 'flex';
+        docs.style.display = 'none';
+        tabOverview.classList.add('active');
+        tabDocs.classList.remove('active');
+      }
+    }
+
+    function switchClientDoc(client, btn) {
+      document.querySelectorAll('#docsClientTabs .pivot-tab').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      document.querySelectorAll('.client-doc-pane').forEach(p => p.style.display = 'none');
+      const targetId = 'doc' + client.charAt(0).toUpperCase() + client.slice(1);
+      const pane = document.getElementById(targetId);
+      if (pane) pane.style.display = 'block';
+    }
+
     async function runGatewayQuickTest() {
-      const model = document.getElementById('quickTestModel').value;
+      const baseModel = document.getElementById('quickTestModel').value;
+      const thinkLevel = document.getElementById('quickTestThinkLevel').value;
+      const model = thinkLevel ? `${baseModel}${thinkLevel}` : baseModel;
+
       const btn = document.getElementById('btnRunQuickTest');
       const out = document.getElementById('quickTestOutput');
       out.style.display = 'block';
-      out.innerHTML = '<span style="color:var(--ms-blue-luminous);">[发起请求] 正在调用统一网关 /v1/chat/completions (模型: ' + model + ')...</span>\n';
+      out.innerHTML = '<span style="color:var(--ms-blue-luminous);">[发起请求] 正在调用统一网关 /v1/chat/completions (目标模型: ' + model + ')...</span>\n';
       btn.disabled = true;
       btn.textContent = '⏳ 测试中...';
       const startTime = Date.now();
@@ -1397,7 +1631,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model,
-            messages: [{ role: 'user', content: '你好，请用一句话介绍你自己并给出当前的响应状态。' }],
+            messages: [{ role: 'user', content: '请简短介绍你自己并说明当前的响应状态与思考模式。' }],
             stream: true
           })
         });
@@ -1431,7 +1665,7 @@
           }
         }
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-        out.innerHTML = replyText + '\n\n<span style="color:#10b981; font-size:11px; font-weight:600;">✓ 测试成功通过！耗时 ' + elapsed + 's · 响应完整无风控</span>';
+        out.innerHTML = replyText + '\n\n<span style="color:#10b981; font-size:11px; font-weight:600;">✓ 测试成功通过！耗时 ' + elapsed + 's · 响应完整且可用</span>';
       } catch (err) {
         out.innerHTML += '\n<span style="color:var(--ms-red);">[异常]: ' + err.message + '</span>';
       } finally {

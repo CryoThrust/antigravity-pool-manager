@@ -33,6 +33,7 @@ import hashlib
 import argparse
 import base64
 import binascii
+import threading
 from typing import Optional
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
@@ -71,29 +72,37 @@ CONFIG = dict(DEFAULT_CONFIG)
 #   1=FAST, 2=THINKING, 3=PRO, 4=AUTO, 5=FAST_DYNAMIC_THINKING, 6=FLASH_LITE
 
 MODELS = {
+    "gemini-3.8-flash": {
+        "mode": 1, "think": 4,
+        "desc": "Google Official Gemini 3.8 Flash (Latest Flagship)",
+    },
+    "gemini-3.8-live-extended-thinking": {
+        "mode": 2, "think": 0,
+        "desc": "Google Official Gemini 3.8 Live Extended Thinking (Deep Inference)",
+    },
     "gemini-3.7-flash": {
         "mode": 1, "think": 4,
-        "desc": "Latest all-around model (Gemini 3.7 Flash)",
+        "desc": "Google Official Gemini 3.7 Flash",
     },
     "gemini-3.6-flash": {
         "mode": 1, "think": 4,
-        "desc": "All-around model (Gemini 3.6 Flash)",
+        "desc": "Google Official Gemini 3.6 Flash",
     },
     "gemini-3.5-flash": {
         "mode": 1, "think": 4,
-        "desc": "Alias for gemini-3.6-flash (backend upgraded)",
+        "desc": "Google Official Gemini 3.5 Flash",
     },
     "gemini-3.5-flash-thinking": {
         "mode": 2, "think": 0,
-        "desc": "Deep thinking mode, longest output (~20k chars)",
+        "desc": "Google Official Gemini 3.5 Flash Thinking (Deep Thinking 20k)",
     },
     "gemini-3.1-pro": {
         "mode": 3, "think": 4,
-        "desc": "Pro model (requires cookie for real routing)",
+        "desc": "Google Official Gemini 3.1 Pro (Pro Membership)",
     },
     "gemini-auto": {
         "mode": 4, "think": 4,
-        "desc": "Auto model selection",
+        "desc": "Auto Adaptive Model",
     },
     "gemini-3.5-flash-thinking-lite": {
         "mode": 5, "think": 0,
@@ -101,9 +110,76 @@ MODELS = {
     },
     "gemini-flash-lite": {
         "mode": 6, "think": 4,
-        "desc": "Lightweight fast model",
+        "desc": "Lightweight ultra-fast model",
     },
 }
+
+_LAST_OFFICIAL_SYNC = 0
+_OFFICIAL_SYNC_INTERVAL = 3600  # 1 hour cache
+_IS_SYNCING_MODELS = False
+
+def _do_fetch_official_google_models():
+    global _LAST_OFFICIAL_SYNC, _IS_SYNCING_MODELS
+    try:
+        urls = [
+            "https://ai.google.dev/gemini-api/docs/models/gemini",
+            "https://ai.google.dev/gemini-api/docs/models",
+        ]
+        added = 0
+        for u in urls:
+            try:
+                req = urllib.request.Request(
+                    u,
+                    headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    html = resp.read().decode("utf-8", errors="ignore")
+                    found = set(re.findall(r"gemini-[0-9a-z\.\-]+", html))
+                    for m in found:
+                        m = m.strip(".").lower()
+                        if not any(x in m for x in ["flash", "pro", "lite", "thinking", "live", "transcribe", "computer"]):
+                            continue
+                        if m.endswith(".html") or m.endswith(".js") or len(m) > 40:
+                            continue
+                        if m not in MODELS:
+                            mode, think, desc = infer_model_config(m)
+                            MODELS[m] = {"mode": mode, "think": think, "desc": f"Google Official: {desc}"}
+                            added += 1
+            except Exception as e:
+                log(f"Dynamic official model fetch error from {u}: {e}")
+
+        _LAST_OFFICIAL_SYNC = time.time()
+        if added > 0:
+            log(f"Dynamically loaded {added} official models from Google dev portal. Total: {len(MODELS)}")
+    finally:
+        _IS_SYNCING_MODELS = False
+
+
+def fetch_official_google_models() -> list:
+    """Fetch official Gemini models dynamically from ai.google.dev in background without blocking requests."""
+    global _IS_SYNCING_MODELS
+    now = time.time()
+    if (now - _LAST_OFFICIAL_SYNC > _OFFICIAL_SYNC_INTERVAL or len(MODELS) < 15) and not _IS_SYNCING_MODELS:
+        _IS_SYNCING_MODELS = True
+        t = threading.Thread(target=_do_fetch_official_google_models, daemon=True)
+        t.start()
+    return list(MODELS.keys())
+
+
+def infer_model_config(name: str) -> tuple:
+    """Infer (mode, think_level, desc) dynamically for any official Google model."""
+    clean = name.lower()
+    if "pro" in clean:
+        return 3, 4, f"{name} (Pro reasoning model)"
+    elif "thinking" in clean or "extended" in clean:
+        return 2, 0, f"{name} (Deep thinking model)"
+    elif "lite" in clean:
+        return 6, 4, f"{name} (Fast lightweight model)"
+    elif "dynamic" in clean:
+        return 5, 0, f"{name} (Adaptive thinking model)"
+    else:
+        return 1, 4, f"{name} (Official all-around flash model)"
+
 
 # ─── Utilities ───────────────────────────────────────────────────────────────
 
@@ -694,6 +770,7 @@ class GeminiHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": {"message": "invalid api key"}}, 401)
                 return
             if self.path == "/v1/models":
+                fetch_official_google_models()
                 self.send_json({"object": "list", "data": [
                     {"id": n, "object": "model", "created": 1700000000,
                      "owned_by": "google", "description": c["desc"]}
@@ -766,10 +843,19 @@ class GeminiHandler(BaseHTTPRequestHandler):
         think_override = None
         if "@think=" in model_name:
             model_name, think_str = model_name.rsplit("@think=", 1)
-            think_override = int(think_str)
+            try:
+                think_override = int(think_str)
+            except ValueError:
+                pass
+
         cfg = MODELS.get(model_name)
         if not cfg:
-            return None, None, None, f"Unknown model: {model_name}"
+            # Auto-infer dynamically for any official or future Google model!
+            mode, default_think, desc = infer_model_config(model_name)
+            cfg = {"mode": mode, "think": default_think, "desc": desc}
+            MODELS[model_name] = cfg
+            log(f"Dynamically registered on-the-fly model: {model_name} (mode={mode}, think={default_think})")
+
         return model_name, cfg["mode"], (think_override if think_override is not None else cfg["think"]), None
 
     def _call_gemini(self, prompt, model_id, think_mode, tools, file_refs=None, custom_cookie=None):
