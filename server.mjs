@@ -840,6 +840,147 @@ function ensureWeb2ApiWorker() {
 ensureWeb2ApiWorker();
 setInterval(ensureWeb2ApiWorker, 30000);
 
+// ─── 智能自适应巡检与节能待机系统 (Smart Standby & 10-Minute Probe Engine) ───────────
+const STANDBY_IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 连续 15 分钟无业务请求自动进入节能待机
+const ACCOUNT_PROBE_INTERVAL_MS = 10 * 60 * 1000; // 每个账号 10 分钟检测一次健康度与配额
+let lastActivityTimestamp = Date.now();
+let isStandbyMode = false;
+
+function touchActivity() {
+  lastActivityTimestamp = Date.now();
+  if (isStandbyMode) {
+    isStandbyMode = false;
+    console.log('[Smart Standby] 检测到调用请求，系统瞬时唤醒，恢复 10 分钟巡检');
+    triggerAccountHealthChecks(false).catch(() => {});
+  }
+}
+
+async function testSingleAccountHealth(email, acc, force = false) {
+  const now = Date.now();
+  const lastCheck = acc.last_health_check ? new Date(acc.last_health_check).getTime() : 0;
+  if (!force && (now - lastCheck < ACCOUNT_PROBE_INTERVAL_MS)) {
+    return false;
+  }
+
+  let changed = false;
+
+  // 1. 刷新配额数据 (官方 UserQuotaSummary)
+  try {
+    await fetchAccountQuotaDirect(acc);
+    changed = true;
+  } catch (e) {}
+
+  // 2. 探测 Google AI Studio 官方 Key 健康度
+  if (acc.ai_studio?.api_key) {
+    const key = acc.ai_studio.api_key.trim();
+    try {
+      const t0 = Date.now();
+      const testRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }] }),
+        signal: AbortSignal.timeout(6000)
+      });
+      const latency = Date.now() - t0;
+      const data = await testRes.json().catch(() => ({}));
+      if (testRes.ok) {
+        acc.ai_studio.status = 'active';
+        acc.ai_studio.latency_ms = latency;
+        acc.ai_studio.last_tested = new Date().toISOString();
+        acc.ai_studio.last_error = null;
+        changed = true;
+      } else {
+        const errMsg = data.error?.message || testRes.statusText;
+        if (testRes.status === 429 || errMsg.includes('RESOURCE_EXHAUSTED')) {
+          acc.ai_studio.status = 'exhausted';
+          acc.ai_studio.used_today = acc.ai_studio.daily_limit || 1500;
+        } else {
+          acc.ai_studio.status = 'invalid';
+        }
+        acc.ai_studio.last_error = errMsg;
+        acc.ai_studio.last_tested = new Date().toISOString();
+        changed = true;
+      }
+    } catch (e) {
+      acc.ai_studio.status = 'error';
+      acc.ai_studio.last_error = e.message;
+      acc.ai_studio.last_tested = new Date().toISOString();
+      changed = true;
+    }
+  }
+
+  // 3. 探测 Web 反代凭据 (如果有 cookie)
+  if (acc.web_auth?.cookie) {
+    try {
+      const t0 = Date.now();
+      const testRes = await fetch('http://localhost:8085/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Gemini-Cookie': acc.web_auth.cookie
+        },
+        body: JSON.stringify({
+          model: 'gemini-3.8-flash',
+          messages: [{ role: 'user', content: 'ping' }],
+          stream: false
+        }),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (testRes.ok) {
+        acc.web_auth.status = 'active';
+        acc.web_auth.latency_ms = Date.now() - t0;
+        acc.web_auth.last_tested = new Date().toISOString();
+        acc.web_auth.last_error = null;
+        changed = true;
+      } else {
+        acc.web_auth.status = 'expired';
+        acc.web_auth.last_tested = new Date().toISOString();
+        changed = true;
+      }
+    } catch (e) {
+      acc.web_auth.last_error = e.message;
+      acc.web_auth.last_tested = new Date().toISOString();
+      changed = true;
+    }
+  }
+
+  acc.last_health_check = new Date().toISOString();
+  return true;
+}
+
+async function triggerAccountHealthChecks(force = false) {
+  const now = Date.now();
+  const idle = now - lastActivityTimestamp;
+
+  // 若无业务请求超 15 分钟且非强制执行，进入节能待机
+  if (!force && idle > STANDBY_IDLE_TIMEOUT_MS) {
+    if (!isStandbyMode) {
+      isStandbyMode = true;
+      console.log(`[Smart Standby] 超过 15 分钟无外部请求，已自动挂起后台探测（节能/保额/防风控）`);
+    }
+    return false;
+  }
+
+  const pool = loadPool();
+  let poolChanged = false;
+  const accounts = Object.entries(pool.accounts || {});
+
+  for (const [email, acc] of accounts) {
+    const changed = await testSingleAccountHealth(email, acc, force);
+    if (changed) poolChanged = true;
+  }
+
+  if (poolChanged) {
+    savePool(pool);
+  }
+  return true;
+}
+
+// 调度器：每 30 秒检查是否有账号满足 10 分钟检测窗口
+setInterval(() => {
+  triggerAccountHealthChecks(false).catch(() => {});
+}, 30000);
+
 async function forwardToWebProxy(req, res, body, model) {
   const forwardBody = { ...body, model };
   const pool = loadPool();
@@ -1024,6 +1165,7 @@ async function callAIStudioNonStream(email, acc, pool, key, model, messages) {
 }
 
 async function handleChatCompletions(req, res, body) {
+  touchActivity();
   const pool = loadPool();
   resetDailyQuotasIfNeeded(pool);
 
@@ -1071,6 +1213,7 @@ async function handleChatCompletions(req, res, body) {
 }
 
 async function handleImageGenerations(req, res, body) {
+  touchActivity();
   const pool = loadPool();
   const { prompt, n = 1, size = '1024x1024' } = body || {};
 
@@ -1258,11 +1401,11 @@ const server = http.createServer(async (req, res) => {
     const pool = loadPool();
 
     resetDailyQuotasIfNeeded(pool);
-    // 动态并发刷新号池中所有账号的配额
+    // 动态并发刷新号池中所有账号的配额（10分钟巡检周期，待机模式下自动挂起以省流保额）
     const accountList = Object.values(pool.accounts);
     for (const acc of accountList) {
-      // 如果 60 秒内没查过，更新一次
-      if (!acc.quota || !acc.quota.updated_at || Date.now() - new Date(acc.quota.updated_at).getTime() > 60 * 1000) {
+      const lastCheck = acc.quota?.updated_at ? new Date(acc.quota.updated_at).getTime() : 0;
+      if (!isStandbyMode && (Date.now() - lastCheck > ACCOUNT_PROBE_INTERVAL_MS)) {
         await fetchAccountQuotaDirect(acc);
       }
     }
@@ -1324,6 +1467,12 @@ const server = http.createServer(async (req, res) => {
       sessionStats,
       conversations,
       dialogTurns,
+      standby: {
+        isStandby: isStandbyMode || (Date.now() - lastActivityTimestamp > STANDBY_IDLE_TIMEOUT_MS),
+        idleSeconds: Math.floor((Date.now() - lastActivityTimestamp) / 1000),
+        probeIntervalMinutes: 10,
+        statusText: (isStandbyMode || (Date.now() - lastActivityTimestamp > STANDBY_IDLE_TIMEOUT_MS)) ? '节能待机中 (挂起探测)' : '巡检活跃中 (10m 探测)'
+      },
       currentSystemUser,
       autoSwitch: pool.autoSwitch !== false,
       gateway,
@@ -1335,6 +1484,12 @@ const server = http.createServer(async (req, res) => {
         accounts: accountList
       }
     });
+  }
+
+  if (url.pathname === '/api/health/probe-all') {
+    touchActivity();
+    await triggerAccountHealthChecks(true);
+    return sendJSON({ success: true, message: '已完成全量账号 10 分钟健康度巡检' });
   }
 
   if (url.pathname === '/api/accounts') {

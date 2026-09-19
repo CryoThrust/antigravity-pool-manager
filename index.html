@@ -912,6 +912,8 @@
               纳管账号集群与分级算力矩阵
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="probeStatusBadge" class="badge green" style="font-size:11px; padding:3px 7px;" title="每个账号每 10 分钟自动测试健康度与配额"><span class="dot-live green" style="width:5px; height:5px; margin-right:3px;"></span> 10m 巡检</span>
+              <button class="btn mini" id="btnProbeAll" onclick="triggerProbeAll()" title="立即触发全量账号 10 分钟健康与配额巡检">⚡ 立即体检</button>
               <div style="display: flex; gap: 4px;" id="accountTierFilterGroup">
                 <button class="btn mini primary" id="btnFilterTierAll" onclick="setAccountTierFilter('all', this)">全部 (6)</button>
                 <button class="btn mini" id="btnFilterTierPro" onclick="setAccountTierFilter('pro', this)" style="color: #f59e0b;">★ PRO 会员 (2)</button>
@@ -1497,6 +1499,23 @@ print(resp.choices[0].message.content)</pre>
         if (dTokenSub) dTokenSub.textContent = '活跃会话累计';
       }
 
+      const standbyEl = document.getElementById('probeStatusBadge');
+      if (standbyEl && data.standby) {
+        if (data.standby.isStandby) {
+          standbyEl.className = 'badge';
+          standbyEl.style.background = 'rgba(255,255,255,0.06)';
+          standbyEl.style.color = 'var(--text-muted)';
+          standbyEl.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:3px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg> 节能待机中`;
+          standbyEl.title = `连续 15 分钟无业务请求，已自动挂起后台探测以节约电量与配额 (空闲 ${data.standby.idleSeconds} 秒)；发起调用时即时自动唤醒`;
+        } else {
+          standbyEl.className = 'badge green';
+          standbyEl.style.background = '';
+          standbyEl.style.color = '';
+          standbyEl.innerHTML = `<span class="dot-live green" style="width:5px; height:5px; margin-right:3px;"></span> 10m 巡检就绪`;
+          standbyEl.title = '巡检调度活跃中：每个账号每 10 分钟自动探测一次健康度与配额';
+        }
+      }
+
       // 渲染账号矩阵表格
       renderAccountsTable(rawAccounts, activeEmail);
 
@@ -1532,6 +1551,25 @@ print(resp.choices[0].message.content)</pre>
       }
     } catch (e) {
       alert('切换账号等级失败: ' + e.message);
+    }
+  }
+
+  async function triggerProbeAll() {
+    const btn = document.getElementById('btnProbeAll');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '检测中...';
+    }
+    try {
+      await fetch(api('/api/health/probe-all'), { method: 'POST' });
+      await loadData();
+    } catch (e) {
+      alert('健康巡检失败: ' + e.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '⚡ 立即体检';
+      }
     }
   }
 
@@ -1597,17 +1635,34 @@ print(resp.choices[0].message.content)</pre>
       const used = a.ai_studio?.used_today || 0;
       const remaining = Math.max(0, limit - used);
       const hasKey = !!a.ai_studio?.api_key;
+      let keyActionHtml = '';
+      if (hasKey && a.ai_studio?.status === 'active') {
+        keyActionHtml = `<span class="badge green" style="cursor:default; font-size:10px; padding:2px 6px; user-select:none;" title="10分钟自动巡检通过 · Key 正常"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="margin-right:2px;"><polyline points="20 6 9 17 4 12"></polyline></svg>Key就绪</span>`;
+      } else if (hasKey && a.ai_studio?.status === 'exhausted') {
+        keyActionHtml = `<button class="btn mini amber" onclick="openBindAiKeyModal('${a.email}')" title="今日配额超限，点击更换 Key">换Key</button>`;
+      } else if (hasKey && (a.ai_studio?.status === 'invalid' || a.ai_studio?.status === 'error')) {
+        keyActionHtml = `<button class="btn mini danger-subtle" onclick="openBindAiKeyModal('${a.email}')" title="Key 校验失败或异常，点击重新绑定">重绑</button>`;
+      } else {
+        keyActionHtml = `<button class="btn mini" onclick="openBindAiKeyModal('${a.email}')" title="绑定 Google AI Studio Key">+Key</button>`;
+      }
+
       let apiKeyHtml = `
         <div style="display:flex; align-items:center; gap:5px;">
           <span class="badge ${remaining > 0 ? 'green' : 'amber'}">${remaining.toLocaleString()} 次/天</span>
-          ${hasKey ? '<span style="font-size:10px; color:var(--accent-blue-glow);">Key</span>' : `<button class="btn mini" onclick="openBindAiKeyModal('${a.email}')">+Key</button>`}
+          ${keyActionHtml}
         </div>
       `;
 
-      const webReady = a.web_auth?.status === 'active' || !!a.web_auth?.cookie;
-      let webAuthHtml = webReady 
-        ? `<span class="badge ${isPro ? 'pro' : 'green'}">${isPro ? 'Pro 会员' : '就绪'}</span>`
-        : `<button class="btn mini" onclick="triggerAutoAuth('${a.email}')">同步反代</button>`;
+      const webHasCookie = !!a.web_auth?.cookie;
+      const webActive = webHasCookie && a.web_auth?.status === 'active';
+      let webAuthHtml = '';
+      if (webActive) {
+        webAuthHtml = `<span class="badge ${isPro ? 'pro' : 'green'}" style="cursor:default; font-size:10px; padding:2px 6px; user-select:none;" title="10分钟自动巡检通过 · 反代通道正常"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="margin-right:2px;"><polyline points="20 6 9 17 4 12"></polyline></svg>${isPro ? '★ Pro就绪' : '就绪'}</span>`;
+      } else if (webHasCookie && (a.web_auth?.status === 'expired' || a.web_auth?.status === 'error')) {
+        webAuthHtml = `<button class="btn mini danger-subtle" onclick="triggerAutoAuth('${a.email}')" title="反代凭据已失效，点击重新同步">重新同步</button>`;
+      } else {
+        webAuthHtml = `<button class="btn mini" onclick="triggerAutoAuth('${a.email}')" title="同步 Google 会话反代凭据">同步反代</button>`;
+      }
 
       let tierToggleBtn = isPro
         ? `<button class="btn mini" onclick="toggleAccountTier('${a.email}', 'standard')" title="降为标准账号" style="color:var(--text-muted);">降级</button>`
