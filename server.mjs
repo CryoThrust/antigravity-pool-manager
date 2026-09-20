@@ -2833,7 +2833,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ─── 绑定与测试 AI Studio API Key ─────────────────────────────
-  if (url.pathname === '/api/account/bind-ai-key' && req.method === 'POST') {
+  if (['/api/account/bind-ai-key', '/api/account/bind-ai-studio'].includes(url.pathname) && req.method === 'POST') {
     const body = await readBody();
     const { email, apiKey } = body;
     if (!email || !apiKey) return sendJSON({ error: '缺少账号邮箱或 API Key' }, 400);

@@ -539,6 +539,40 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Modal: 绑定 Google AI Studio 官方 API Key -->
+<div class="overlay" id="modalBindApiKey">
+  <div class="modal" style="max-width:500px;">
+    <div class="m-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>绑定 Google AI Studio 官方 API Key</span>
+      <span style="font-size:11px;color:var(--green);background:rgba(48,209,88,0.1);padding:2px 8px;border-radius:4px;">1500 次/天 免费</span>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;background:rgba(10,132,255,0.08);border:1px solid rgba(10,132,255,0.2);border-radius:8px;margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        目标账号：<strong id="bindKeyEmail" style="color:var(--blue)"></strong>
+      </div>
+      <button class="abtn" onclick="openAIStudioWeb()" style="font-size:11px;padding:4px 10px;flex-shrink:0;background:rgba(10,132,255,0.15);color:var(--blue);border:1px solid rgba(10,132,255,0.3);">🌐 打开 AI Studio 获取 Key</button>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;font-weight:600;color:var(--text);">Google AI Studio API Key</span>
+        <button class="abtn" onclick="pasteApiKeyFromClipboard()" style="font-size:11px;padding:2px 8px;">📋 从剪贴板粘贴</button>
+      </div>
+      <input type="text" class="m-input" id="inputApiKey" placeholder="在此粘贴以 AIzaSy 开头的真实 API Key..." style="font-family:var(--mono);font-size:12px;padding:8px 10px;" />
+      <div id="bindKeyError" style="font-size:11px;color:var(--red);display:none;line-height:1.4;"></div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;">
+        💡 提示：在 <a href="javascript:void(0)" onclick="openAIStudioWeb()" style="color:var(--blue);text-decoration:underline;">aistudio.google.com</a> 点击「Get API key」即可秒级免费创建。绑定后原生支持 ZCode 的 Tool Use（工具调用与终端执行）。
+      </div>
+    </div>
+
+    <div class="m-foot" style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn-c" onclick="closeBindApiKeyModal()">取消</button>
+      <button class="abtn prim" id="btnSaveApiKey" onclick="submitBindApiKey()" style="padding:6px 16px;font-size:12px;">验证并保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: 浏览器绑定 Web 反代登录态 (人工操作) -->
 <div class="overlay" id="modalCapture">
   <div class="modal" style="max-width:480px;">
@@ -936,12 +970,15 @@
           ${acc.name && acc.name !== acc.email ? `<div class="acell-name">${maskEmail(acc.name)}</div>` : ''}
         </div></div></td>
         <td><span class="badge ${isPro ? 'badge-pro' : 'badge-std'}">${isPro ? 'Pro' : 'Std'}</span></td>
-        <td><div class="scell"><span class="dot ${hasKey ? 'dot-g' : 'dot-x'}"></span>${hasKey ? '已绑定' : '未绑定'}</div></td>
+        <td><div class="scell" style="cursor:pointer;" onclick="openBindApiKeyModal('${acc.email}')" title="点击配置/修改 Google AI Studio Key"><span class="dot ${hasKey ? 'dot-g' : 'dot-x'}"></span>${hasKey ? '已绑定 (修改)' : '未绑定 (去配置)'}</div></td>
         <td><div class="scell"><span class="dot ${webOk ? 'dot-g' : 'dot-x'}"></span>${webOk ? '已登录' : '未绑定'}</div></td>
         <td>${gQuota}</td>
         <td>${cQuota}</td>
         <td><div class="acts">
           ${!isAct ? `<button class="abtn" onclick="setActive('${acc.email}')">设激活</button>` : ''}
+          <button class="abtn ${hasKey ? 'ok' : 'prim'}" onclick="openBindApiKeyModal('${acc.email}')" title="绑定/修改 Google AI Studio Key">
+            ${hasKey ? '✓ 官方 Key' : '🔑 绑 Key'}
+          </button>
           <button class="abtn ${webOk ? 'ok' : 'prim'}" onclick="triggerWebLogin('${acc.email}')">
             ${webOk ? '✓ 重新绑 Web' : '登录 Web'}
           </button>
@@ -1019,8 +1056,110 @@
     }
   }
 
-  // 窗口切回时自动检测剪贴板中的 Cookie
+  // ─── 绑定与管理 Google AI Studio API Key ─────────────────────
+  let currentBindingEmail = null;
+
+  function openBindApiKeyModal(email) {
+    currentBindingEmail = email;
+    document.getElementById('bindKeyEmail').textContent = maskEmail(email);
+    const input = document.getElementById('inputApiKey');
+    input.value = '';
+    document.getElementById('bindKeyError').style.display = 'none';
+    document.getElementById('btnSaveApiKey').textContent = '验证并保存';
+    document.getElementById('btnSaveApiKey').disabled = false;
+    document.getElementById('modalBindApiKey').classList.add('open');
+    setTimeout(() => input.focus(), 100);
+  }
+
+  function closeBindApiKeyModal() {
+    document.getElementById('modalBindApiKey').classList.remove('open');
+    currentBindingEmail = null;
+  }
+
+  function openAIStudioWeb() {
+    const url = 'https://aistudio.google.com/apikey';
+    if (window.webkit?.messageHandlers?.openExternal) {
+      window.webkit.messageHandlers.openExternal.postMessage(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }
+
+  async function pasteApiKeyFromClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        document.getElementById('inputApiKey').value = text.trim();
+        showToast('已从剪贴板粘贴');
+      }
+    } catch (e) {
+      showToast('无法读取剪贴板，请直接按 Cmd+V 粘贴');
+    }
+  }
+
+  async function submitBindApiKey() {
+    if (!currentBindingEmail) return;
+    const apiKey = document.getElementById('inputApiKey').value.trim();
+    const errDiv = document.getElementById('bindKeyError');
+    const btn = document.getElementById('btnSaveApiKey');
+
+    if (!apiKey) {
+      errDiv.textContent = '请输入有效的 API Key';
+      errDiv.style.display = 'block';
+      return;
+    }
+    if (!apiKey.startsWith('AIzaSy')) {
+      errDiv.textContent = 'Key 格式不正确，Google 官方 Key 通常以 "AIzaSy" 开头';
+      errDiv.style.display = 'block';
+      return;
+    }
+
+    btn.textContent = '正在连接 Google 校验...';
+    btn.disabled = true;
+    errDiv.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/account/bind-ai-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentBindingEmail, apiKey })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errDiv.textContent = data.error || 'Google 官方校验失败，请检查 Key 是否有效';
+        errDiv.style.display = 'block';
+        btn.textContent = '重新验证';
+        btn.disabled = false;
+        return;
+      }
+
+      showToast('🎉 Google AI Studio API Key 验证成功并已激活！');
+      closeBindApiKeyModal();
+      loadData();
+    } catch (e) {
+      errDiv.textContent = '请求失败: ' + e.message;
+      errDiv.style.display = 'block';
+      btn.textContent = '重新验证';
+      btn.disabled = false;
+    }
+  }
+
+  // 窗口切回时自动检测剪贴板中的 Cookie 或 API Key
   window.addEventListener('focus', async () => {
+    const modalKey = document.getElementById('modalBindApiKey');
+    if (modalKey && modalKey.classList.contains('open')) {
+      const input = document.getElementById('inputApiKey');
+      if (input && !input.value.trim()) {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text && text.trim().startsWith('AIzaSy')) {
+            input.value = text.trim();
+            showToast('✨ 已自动从剪贴板读取 API Key，点击「验证并保存」即可！');
+          }
+        } catch (e) {}
+      }
+    }
+
     const modal = document.getElementById('modalCapture');
     if (modal && modal.classList.contains('open')) {
       const input = document.getElementById('capManualCookie');
@@ -1205,10 +1344,18 @@
 
   // 初始化
   renderEndpoints();
-  loadData();
-  const urlParams = new URLSearchParams(window.location.search);
-  const targetTab = urlParams.get('tab');
-  if (targetTab) switchTab(targetTab);
+  loadData().then(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetTab = urlParams.get('tab');
+    if (targetTab) switchTab(targetTab);
+    const bindTarget = urlParams.get('bind');
+    if (bindTarget) {
+      setTimeout(() => {
+        const btn = document.querySelector('.abtn[title*="Google AI Studio Key"]');
+        if (btn) btn.click();
+      }, 300);
+    }
+  });
   setInterval(loadData, 12000);
 </script>
 </body>
