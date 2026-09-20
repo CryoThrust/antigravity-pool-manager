@@ -83,6 +83,14 @@ try {
   }
 } catch (e) {}
 
+function maskEmailStr(str) {
+  if (!str || typeof str !== 'string') return '默认账号';
+  if (!str.includes('@')) return str;
+  const [name, domain] = str.split('@');
+  const masked = name.length <= 4 ? name[0] + '***' : name.slice(0, 3) + '***' + name.slice(-1);
+  return `${masked}@${domain}`;
+}
+
 function recordAuditLog(entry) {
   const now = new Date();
   const timeStr = now.toTimeString().split(' ')[0];
@@ -100,7 +108,7 @@ function recordAuditLog(entry) {
     chunks: entry.chunks || 1,
     prompt: (entry.prompt || '').slice(0, 300),
     response: (entry.response || '').slice(0, 500),
-    account: entry.account || '默认账号',
+    account: maskEmailStr(entry.account),
     error: entry.error || null
   };
 

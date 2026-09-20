@@ -597,8 +597,27 @@
   const PROTO_URLS = {
     openai: 'http://localhost:3999/v1',
     claude: 'http://localhost:3999/claude/v1',
-    gemini: 'http://localhost:3999/gemini/v1beta'
+    gemini: 'http://localhost:3999/api-v1'
   };
+
+  // ─── 邮箱脱敏脱密函数 (隐私安全保护) ──────────────────────────
+  function maskEmail(str) {
+    if (!str || typeof str !== 'string') return '—';
+    if (!str.includes('@')) {
+      if (str.length <= 4) return str;
+      return str.slice(0, 2) + '***' + str.slice(-2);
+    }
+    const [name, domain] = str.split('@');
+    let masked = '';
+    if (name.length <= 2) {
+      masked = name[0] + '*';
+    } else if (name.length <= 5) {
+      masked = name.slice(0, 2) + '***';
+    } else {
+      masked = name.slice(0, 3) + '***' + name.slice(-2);
+    }
+    return `${masked}@${domain}`;
+  }
   let currentProto = 'openai';
   function setProto(p) {
     currentProto = p;
@@ -658,7 +677,7 @@
   async function triggerWebLogin(email) {
     captureTargetEmail = email;
     const elEmail = document.getElementById('capEmail');
-    if (elEmail) elEmail.textContent = email;
+    if (elEmail) elEmail.textContent = maskEmail(email);
     const elInput = document.getElementById('capManualCookie');
     if (elInput) elInput.value = '';
     const elPro = document.getElementById('capIsPro');
@@ -869,7 +888,7 @@
             <div class="mini-bar-row"><span class="mini-bar-label">C周</span>${mkBar(cw,'var(--purple)')}</div>
           </div>`;
 
-      return `<div class="mini-row">${avatarHtml}<div class="mini-email">${acc.email}</div>${barSection}</div>`;
+      return `<div class="mini-row">${avatarHtml}<div class="mini-email">${maskEmail(acc.email)}</div>${barSection}</div>`;
     }).join('');
   }
 
@@ -913,8 +932,8 @@
 
       return `<tr class="${isAct ? 'row-active' : ''}">
         <td><div class="acell">${avatarHtml}<div class="acell-info">
-          <div class="acell-email">${acc.email}${isAct ? ' <span class="badge badge-cur">激活</span>' : ''}</div>
-          ${acc.name && acc.name !== acc.email ? `<div class="acell-name">${acc.name}</div>` : ''}
+          <div class="acell-email">${maskEmail(acc.email)}${isAct ? ' <span class="badge badge-cur">激活</span>' : ''}</div>
+          ${acc.name && acc.name !== acc.email ? `<div class="acell-name">${maskEmail(acc.name)}</div>` : ''}
         </div></div></td>
         <td><span class="badge ${isPro ? 'badge-pro' : 'badge-std'}">${isPro ? 'Pro' : 'Std'}</span></td>
         <td><div class="scell"><span class="dot ${hasKey ? 'dot-g' : 'dot-x'}"></span>${hasKey ? '已绑定' : '未绑定'}</div></td>
@@ -1110,7 +1129,7 @@
     document.getElementById('detailChannel').textContent = `${log.channel} (${log.stream ? '流式' : '非流式'})`;
     document.getElementById('detailModel').textContent = log.model;
     document.getElementById('detailDuration').textContent = `${log.duration_ms}ms (首字时延: ${log.ttft_ms}ms, 分包: ${log.chunks})`;
-    document.getElementById('detailAccount').textContent = log.account;
+    document.getElementById('detailAccount').textContent = maskEmail(log.account);
 
     document.getElementById('detailPrompt').textContent = log.prompt || '<无内容>';
     document.getElementById('detailResponse').textContent = log.error ? `【异常报错】\n${log.error}` : (log.response || '<无内容>');
