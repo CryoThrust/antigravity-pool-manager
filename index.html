@@ -1150,6 +1150,59 @@
     if (isAuditActive) loadAuditLogs();
   }, 3000);
 
+  // ── 桌面窗口拖拽支持 (macOS 原生顺滑无缝拖动与双击缩放) ──
+  (function initTitlebarDrag() {
+    const titlebar = document.querySelector('.titlebar');
+    if (!titlebar) return;
+
+    let isDragging = false;
+    let startScreenX = 0;
+    let startScreenY = 0;
+
+    titlebar.addEventListener('mousedown', (e) => {
+      // 避免拦截可交互按钮、链接、选项等
+      if (e.target.closest('button, input, select, a, .proto-btn, .url-chip, .switch, [onclick]')) {
+        return;
+      }
+      if (e.button !== 0) return; // 仅左键
+
+      // 双击标题栏空白区域触发原生窗口最大化/还原 (Zoom)
+      if (e.detail === 2) {
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.zoomWindow) {
+          window.webkit.messageHandlers.zoomWindow.postMessage({});
+        }
+        return;
+      }
+
+      isDragging = true;
+      startScreenX = e.screenX;
+      startScreenY = e.screenY;
+
+      const onMouseMove = (ev) => {
+        if (!isDragging) return;
+        const dx = ev.screenX - startScreenX;
+        const dy = ev.screenY - startScreenY;
+        startScreenX = ev.screenX;
+        startScreenY = ev.screenY;
+
+        if (dx !== 0 || dy !== 0) {
+          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.moveWindow) {
+            window.webkit.messageHandlers.moveWindow.postMessage({ dx, dy });
+          }
+        }
+      };
+
+      const onMouseUp = () => {
+        isDragging = false;
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    });
+  })();
+
   // 初始化
   renderEndpoints();
   loadData();

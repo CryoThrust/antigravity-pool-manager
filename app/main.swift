@@ -2,20 +2,8 @@ import Cocoa
 import WebKit
 
 class DraggableWebView: WKWebView {
-    override func mouseDown(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        // 顶部 48px 标题栏区域：左侧 80px 留给交通灯，右侧 220px 留给按钮区，中间全部可拖拽
-        let inTitlebar = (frame.height - point.y) <= 48 && point.x > 80 && point.x < (frame.width - 220)
-        if inTitlebar {
-            if event.clickCount == 2 {
-                // 双击：最大化 / 还原（遵循系统 "双击标题栏" 偏好）
-                window?.zoom(nil)
-                return
-            }
-            window?.performDrag(with: event)
-            return
-        }
-        super.mouseDown(with: event)
+    override var mouseDownCanMoveWindow: Bool {
+        return true
     }
 }
 
@@ -342,6 +330,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         
         let contentController = WKUserContentController()
         contentController.add(self, name: "dragWindow")
+        contentController.add(self, name: "moveWindow")
+        contentController.add(self, name: "zoomWindow")
         contentController.add(self, name: "openExternal")
         contentController.add(self, name: "startAutoAuth")
         config.userContentController = contentController
@@ -361,7 +351,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if message.name == "dragWindow" {
+        if message.name == "moveWindow" {
+            if let dict = message.body as? [String: Any],
+               let dx = dict["dx"] as? Double,
+               let dy = dict["dy"] as? Double {
+                var f = window.frame
+                f.origin.x += CGFloat(dx)
+                f.origin.y -= CGFloat(dy)
+                window.setFrame(f, display: true, animate: false)
+            }
+        } else if message.name == "zoomWindow" {
+            window.zoom(nil)
+        } else if message.name == "dragWindow" {
             if let currentEvent = NSApp.currentEvent {
                 window.performDrag(with: currentEvent)
             }

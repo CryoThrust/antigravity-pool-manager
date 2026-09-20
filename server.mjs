@@ -209,6 +209,69 @@ function sendStreamError(res, msgId, reqModel, status, errText, channel = 'Web�
   }
 }
 
+function isOfficialApiModel(reqModel) {
+  if (!reqModel) return false;
+  const m = String(reqModel).toLowerCase().trim();
+  if (m.startsWith('web-') || m.startsWith('gemini-3.')) return false;
+  return m.includes('2.0') || m.includes('1.5') || m.includes('2.5') || m.includes('official') || m.includes('api_studio');
+}
+
+function sendClaudeStreamText(res, msgId, reqModel, text) {
+  if (!res.headersSent) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      'Access-Control-Allow-Origin': '*'
+    });
+    if (res.flushHeaders) res.flushHeaders();
+  }
+
+  res.write(`event: message_start\ndata: ${JSON.stringify({
+    type: 'message_start',
+    message: {
+      id: msgId || ('msg_' + Math.random().toString(36).slice(2, 10)),
+      type: 'message',
+      role: 'assistant',
+      model: reqModel,
+      content: [],
+      stop_reason: null,
+      usage: { input_tokens: 15, output_tokens: 1 }
+    }
+  })}\n\n`);
+
+  res.write(`event: content_block_start\ndata: ${JSON.stringify({
+    type: 'content_block_start',
+    index: 0,
+    content_block: { type: 'text', text: '' }
+  })}\n\n`);
+
+  const step = 8;
+  for (let i = 0; i < text.length; i += step) {
+    const slice = text.slice(i, i + step);
+    res.write(`event: content_block_delta\ndata: ${JSON.stringify({
+      type: 'content_block_delta',
+      index: 0,
+      delta: { type: 'text_delta', text: slice }
+    })}\n\n`);
+  }
+
+  res.write(`event: content_block_stop\ndata: ${JSON.stringify({
+    type: 'content_block_stop',
+    index: 0
+  })}\n\n`);
+
+  res.write(`event: message_delta\ndata: ${JSON.stringify({
+    type: 'message_delta',
+    delta: { stop_reason: 'end_turn', stop_sequence: null },
+    usage: { output_tokens: Math.max(1, Math.round(text.length / 2)) }
+  })}\n\n`);
+
+  res.write(`event: message_stop\ndata: {"type":"message_stop"}\n\n`);
+  res.end();
+}
+
 // 读取系统凭据（跨平台支持：macOS Keychain 与 Windows Credential Manager / JSON fallback）
 function readCurrentKeychain() {
   if (IS_WIN) {
@@ -943,11 +1006,16 @@ function resolveModelTarget(requestedModel) {
     return { type: 'web', model: cleanName || 'gemini-3.8-flash' };
   }
 
+  // 只要是官方 2.0 / 1.5 专线模型，必须归入官方通道，绝不静默降级为 Web 反代
+  if (isOfficialApiModel(req)) {
+    return { type: 'ai_studio', model: req };
+  }
+
   // 检查号池是否拥有真实有效的官方 AI Studio Key
   const pool = loadPool();
   const hasValidOfficialKey = Object.values(pool.accounts || {}).some(a => {
     const k = a.ai_studio?.api_key;
-    return k && k.startsWith('AIzaSy') && !k.includes('TEST_KEY') && !k.includes('ELOSOMALDONADO') && a.ai_studio?.status !== 'exhausted';
+    return k && k.startsWith('AIzaSy') && !k.includes('TEST_KEY') && !k.includes('XXXX') && !k.includes('ELOSOMALDONADO') && a.ai_studio?.status !== 'exhausted';
   });
 
   // 如果没有真实有效的官方 Key，统一自动路由到 Web 反代（保证已绑定的 Web Cookie 生效）
@@ -2220,7 +2288,254 @@ const server = http.createServer(async (req, res) => {
     const reqModel = body.model || 'gemini-3.8-flash';
     const isStream = body.stream !== false;
     const promptPreview = (body.messages || []).map(m => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n');
+    const msgId = 'msg_' + Math.random().toString(36).substring(2, 14);
 
+    // ── 分流 1：官方 API 专线 (Gemini 2.0 / 1.5 系列) ──────────────────────
+    if (isOfficialApiModel(reqModel)) {
+      const authHeader = req.headers['authorization'] || '';
+      const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+      let officialKey = null;
+      let officialAccount = null;
+      let matchedAccObj = null;
+
+      if (bearerKey && bearerKey.startsWith('AIzaSy') && !bearerKey.includes('TEST_KEY') && !bearerKey.includes('XXXX')) {
+        officialKey = bearerKey;
+        officialAccount = 'Bearer-Header';
+      } else {
+        const pool = loadPool();
+        resetDailyQuotasIfNeeded(pool);
+        const activeAcc = pool.accounts?.[pool.active];
+        const activeK = activeAcc?.ai_studio?.api_key;
+        if (activeK && activeK.startsWith('AIzaSy') && !activeK.includes('TEST_KEY') && !activeK.includes('XXXX') && activeAcc.ai_studio.status !== 'exhausted' && activeAcc.ai_studio.status !== 'invalid') {
+          officialKey = activeK;
+          officialAccount = pool.active;
+          matchedAccObj = activeAcc;
+        } else {
+          for (const [em, acc] of Object.entries(pool.accounts || {})) {
+            const k = acc.ai_studio?.api_key;
+            if (k && k.startsWith('AIzaSy') && !k.includes('TEST_KEY') && !k.includes('XXXX') && acc.ai_studio?.status !== 'exhausted' && acc.ai_studio?.status !== 'invalid') {
+              officialKey = k;
+              officialAccount = em;
+              matchedAccObj = acc;
+              break;
+            }
+          }
+        }
+      }
+
+      // 若未绑定有效 Google AI Studio Key，直接流式输出清晰的指引卡片
+      if (!officialKey) {
+        const guideMsg = `### ⚠️ Antigravity 官方 API 专线配置指引\n\n当前客户端请求的模型为：\`${reqModel}\`（Google AI Studio 官方直连专线）。\n系统检测到您的 Antigravity 账号池中**尚未配置或绑定有效的 Google AI Studio API Key**。\n\n---\n#### 💡 核心原因说明\n* **官方 API 专线**：直连 Google 官方 Generative Language 原生端点，原生支持 Agent 模式、Tool Use（终端命令与工具调用）及复杂代码工作流。\n* **免费额度充足**：每个 Google 账号在 AI Studio 均享有 **1,500 次/天** 的完全免费调用额度。\n\n#### 🚀 快速恢复（二选一）：\n1. **免 Key 极速使用（推荐立即继续）**：\n   无需配置任何 Key，直接在 ZCode / 客户端的模型下拉列表中切换为：\n   👉 **\`gemini-3.8-flash\`** 或 **\`gemini-3.1-pro\`**\n   系统将无缝走 Antigravity Web 反代通道，直接享有满血网页版能力！\n2. **绑定官方 Key（解锁 Agent 与工具调用）**：\n   打开本机控制台 [http://localhost:3999](http://localhost:3999)，在「账号矩阵」中为 Google 账号填入从 [Google AI Studio](https://aistudio.google.com/) 获取的 API Key。`;
+
+        recordAuditLog({
+          channel: '官方API (Gemini 2.0)',
+          endpoint: url.pathname,
+          model: reqModel,
+          stream: isStream,
+          status: 401,
+          duration_ms: Date.now() - tStart,
+          ttft_ms: 1,
+          chunks: 1,
+          prompt: promptPreview,
+          response: guideMsg,
+          account: '未配置Key',
+          error: '缺少有效 Google AI Studio API Key'
+        });
+
+        if (isStream) {
+          return sendClaudeStreamText(res, msgId, reqModel, guideMsg);
+        }
+        return sendJSON({
+          id: msgId,
+          type: 'message',
+          role: 'assistant',
+          model: reqModel,
+          content: [{ type: 'text', text: guideMsg }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 15, output_tokens: Math.round(guideMsg.length / 2) }
+        }, 200);
+      }
+
+      // 拥有有效 Key，调用官方 Gemini 接口
+      let targetOfficialModel = 'gemini-2.0-flash';
+      const lower = reqModel.toLowerCase();
+      if (lower.includes('thinking')) targetOfficialModel = 'gemini-2.0-flash-thinking-exp';
+      else if (lower.includes('pro')) targetOfficialModel = 'gemini-1.5-pro';
+      else if (lower.includes('2.0-flash')) targetOfficialModel = 'gemini-2.0-flash';
+      else if (lower.includes('1.5-flash')) targetOfficialModel = 'gemini-1.5-flash';
+      else if (lower.includes('1.5-pro')) targetOfficialModel = 'gemini-1.5-pro';
+
+      const geminiPayload = formatGeminiPayload(body.messages || []);
+      if (body.system) {
+        geminiPayload.system_instruction = {
+          parts: [{ text: typeof body.system === 'string' ? body.system : JSON.stringify(body.system) }]
+        };
+      }
+
+      try {
+        const officialUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetOfficialModel}:${isStream ? 'streamGenerateContent?alt=sse&' : 'generateContent?'}key=${officialKey}`;
+        const upstream = await fetch(officialUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(geminiPayload)
+        });
+
+        if (!upstream.ok) {
+          const errText = await upstream.text();
+          recordAuditLog({
+            channel: '官方API (Gemini 2.0)',
+            endpoint: url.pathname,
+            model: reqModel,
+            stream: isStream,
+            status: upstream.status,
+            duration_ms: Date.now() - tStart,
+            ttft_ms: 0,
+            chunks: 0,
+            prompt: promptPreview,
+            response: '',
+            account: officialAccount,
+            error: errText
+          });
+          if (isStream) {
+            return sendStreamError(res, msgId, reqModel, upstream.status, errText, '官方API (Gemini 2.0)');
+          }
+          return sendJSON({ error: { type: 'api_error', message: formatErrorMessage(upstream.status, errText, '官方API (Gemini 2.0)') } }, upstream.status);
+        }
+
+        if (matchedAccObj) {
+          matchedAccObj.ai_studio.used_today = (matchedAccObj.ai_studio.used_today || 0) + 1;
+          const pool = loadPool();
+          if (pool.accounts?.[officialAccount]) {
+            pool.accounts[officialAccount].ai_studio.used_today = matchedAccObj.ai_studio.used_today;
+            savePool(pool);
+          }
+        }
+
+        if (!isStream) {
+          const data = await upstream.json();
+          const contentText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const dur = Date.now() - tStart;
+          recordAuditLog({
+            channel: '官方API (Gemini 2.0)',
+            endpoint: url.pathname,
+            model: reqModel,
+            stream: false,
+            status: 200,
+            duration_ms: dur,
+            ttft_ms: dur,
+            chunks: 1,
+            prompt: promptPreview,
+            response: contentText,
+            account: officialAccount
+          });
+          return sendJSON({
+            id: msgId,
+            type: 'message',
+            role: 'assistant',
+            model: reqModel,
+            content: [{ type: 'text', text: contentText }],
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 15, output_tokens: Math.round(contentText.length / 2) }
+          });
+        }
+
+        // 流式转接：Google SSE -> Anthropic SSE
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no',
+          'Access-Control-Allow-Origin': '*'
+        });
+        if (res.flushHeaders) res.flushHeaders();
+
+        res.write(`event: message_start\ndata: ${JSON.stringify({
+          type: 'message_start',
+          message: { id: msgId, type: 'message', role: 'assistant', model: reqModel, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 15, output_tokens: 1 } }
+        })}\n\n`);
+
+        res.write(`event: content_block_start\ndata: ${JSON.stringify({
+          type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' }
+        })}\n\n`);
+
+        const reader = upstream.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+            const dataStr = trimmed.slice(5).trim();
+            if (!dataStr || dataStr === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(dataStr);
+              const deltaText = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              if (deltaText) {
+                if (!tFirstToken) tFirstToken = Date.now();
+                fullResponse += deltaText;
+                chunkCount++;
+                res.write(`event: content_block_delta\ndata: ${JSON.stringify({
+                  type: 'content_block_delta',
+                  index: 0,
+                  delta: { type: 'text_delta', text: deltaText }
+                })}\n\n`);
+              }
+            } catch (e) {}
+          }
+        }
+
+        res.write(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 0 })}\n\n`);
+        res.write(`event: message_delta\ndata: ${JSON.stringify({
+          type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: Math.max(1, Math.round(fullResponse.length / 2)) }
+        })}\n\n`);
+        res.write(`event: message_stop\ndata: {"type":"message_stop"}\n\n`);
+        res.end();
+
+        const totalDur = Date.now() - tStart;
+        recordAuditLog({
+          channel: '官方API (Gemini 2.0)',
+          endpoint: url.pathname,
+          model: reqModel,
+          stream: true,
+          status: 200,
+          duration_ms: totalDur,
+          ttft_ms: tFirstToken ? (tFirstToken - tStart) : totalDur,
+          chunks: chunkCount,
+          prompt: promptPreview,
+          response: fullResponse,
+          account: officialAccount
+        });
+        return;
+      } catch (e) {
+        recordAuditLog({
+          channel: '官方API (Gemini 2.0)',
+          endpoint: url.pathname,
+          model: reqModel,
+          stream: isStream,
+          status: 500,
+          duration_ms: Date.now() - tStart,
+          ttft_ms: 0,
+          chunks: chunkCount,
+          prompt: promptPreview,
+          response: fullResponse,
+          account: officialAccount,
+          error: e.message
+        });
+        if (isStream) {
+          return sendStreamError(res, msgId, reqModel, 500, e.message, '官方API (Gemini 2.0)');
+        }
+        return sendJSON({ error: { type: 'api_error', message: formatErrorMessage(500, e.message, '官方API (Gemini 2.0)') } }, 500);
+      }
+    }
+
+    // ── 分流 2：Web 反代通道 (Gemini 3.8 / 3.1) ──────────────────────────
     const openaiBody = {
       model: reqModel.includes('pro') ? 'gemini-3.1-pro' : 'gemini-3.8-flash',
       messages: (body.messages || []).map(m => ({
@@ -2247,9 +2562,8 @@ const server = http.createServer(async (req, res) => {
       if (anyWeb) chosenCookie = anyWeb.web_auth.cookie;
     }
     const currentAccount = pool.active || (chosenCookie ? 'Web-Cookie' : '未绑定');
-    const msgId = 'msg_' + Math.random().toString(36).substring(2, 14);
 
-    // 如果完全没有检测到可用 Cookie，直接以标准错误卡片打印在屏幕上，告别静默失败
+    // 如果完全没有检测到可用 Cookie，直接以标准错误卡片打印在屏幕上
     if (!chosenCookie) {
       recordAuditLog({
         channel: 'Web反代 (Gemini 3.8)',
@@ -2306,7 +2620,10 @@ const server = http.createServer(async (req, res) => {
 
       if (!isStream) {
         const data = await upstream.json();
-        const contentText = data.choices?.[0]?.message?.content || '';
+        let contentText = data.choices?.[0]?.message?.content || '';
+        if (contentText.includes('Could you try again?') || contentText.startsWith('ed. Could you try again')) {
+          contentText += "\n\n> ⚠️ **[Antigravity 智能诊断]** Web 反代通道在执行复杂的 Agent 工具调用/沙箱命令时受到限制。如需运行完整 Agent 工作流与代码工具，建议在控制台绑定官方 Key 并切换至 `gemini-2.0-flash` 官方专线。";
+        }
         const dur = Date.now() - tStart;
         recordAuditLog({
           channel: 'Web反代 (Gemini 3.8)',
@@ -2380,12 +2697,15 @@ const server = http.createServer(async (req, res) => {
           if (dataStr === '[DONE]') continue;
           try {
             const parsed = JSON.parse(dataStr);
-            const deltaText = parsed.choices?.[0]?.delta?.content || '';
+            let deltaText = parsed.choices?.[0]?.delta?.content || '';
             if (deltaText) {
+              if (deltaText.includes('Could you try again?') || deltaText.startsWith('ed. Could you try again')) {
+                deltaText = "\n\n> ⚠️ **[Antigravity 智能诊断]** Web 反代通道在执行复杂的 Agent 工具调用/沙箱命令时受到限制。如需运行完整 Agent 工作流与代码工具，建议在控制台绑定官方 Key 并切换至 `gemini-2.0-flash` 官方专线。";
+              }
               if (!tFirstToken) tFirstToken = Date.now();
               fullResponse += deltaText;
 
-              // 智能打字机平滑器：当 chunk 较长时分片微延时输出，彻底解决“一下子整段全弹出来”的呆板感
+              // 智能打字机平滑器：当 chunk 较长时分片微延时输出
               const step = 3;
               if (deltaText.length > step) {
                 for (let i = 0; i < deltaText.length; i += step) {
