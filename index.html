@@ -1134,6 +1134,9 @@
   // 初始化
   renderEndpoints();
   loadData();
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetTab = urlParams.get('tab');
+  if (targetTab) switchTab(targetTab);
   setInterval(loadData, 12000);
 </script>
 </body>
