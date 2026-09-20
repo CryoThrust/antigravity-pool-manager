@@ -21,6 +21,7 @@ chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 cp "${SRC_DIR}/app/AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
 cp "${SRC_DIR}/index.html" "${APP_BUNDLE}/Contents/Resources/index.html"
 cp "${SRC_DIR}/server.mjs" "${APP_BUNDLE}/Contents/Resources/server.mjs"
+cp -R "${SRC_DIR}/web2api" "${APP_BUNDLE}/Contents/Resources/web2api"
 
 echo "==> 写入 Info.plist..."
 cat << 'PLIST' > "${APP_BUNDLE}/Contents/Info.plist"

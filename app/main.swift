@@ -4,8 +4,14 @@ import WebKit
 class DraggableWebView: WKWebView {
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        // 顶部 54px 区域：除右侧按钮区域（宽约 260px）和左侧交通灯（75px）以外，全部响应窗口拖拽
-        if frame.height - point.y <= 54 && point.x < (frame.width - 240) {
+        // 顶部 48px 标题栏区域：左侧 80px 留给交通灯，右侧 220px 留给按钮区，中间全部可拖拽
+        let inTitlebar = (frame.height - point.y) <= 48 && point.x > 80 && point.x < (frame.width - 220)
+        if inTitlebar {
+            if event.clickCount == 2 {
+                // 双击：最大化 / 还原（遵循系统 "双击标题栏" 偏好）
+                window?.zoom(nil)
+                return
+            }
             window?.performDrag(with: event)
             return
         }
@@ -322,11 +328,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDe
         )
         window.center()
         window.minSize = NSSize(width: 980, height: 640)
-        window.title = "Antigravity 账号池与配额控制台"
+        window.title = "Antigravity Manager"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
-        window.backgroundColor = NSColor(red: 0.06, green: 0.07, blue: 0.09, alpha: 1.0)
+        window.backgroundColor = NSColor(red: 0.067, green: 0.067, blue: 0.075, alpha: 1.0)
+        // 允许绿色 zoom 按钮与双击标题栏最大化
+        window.collectionBehavior = [.fullScreenPrimary, .managed]
 
         // WebKit 配置
         let config = WKWebViewConfiguration()

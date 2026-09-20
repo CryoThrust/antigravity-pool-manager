@@ -5,2461 +5,1136 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Antigravity Manager</title>
   <style>
-    :root {
-      /* macOS Pro Dark Palette */
-      --bg-window: #0c0d10;
-      --bg-titlebar: #121317;
-      --bg-sidebar: #131418;
-      --bg-canvas: #090a0c;
-      --bg-inspector: #131418;
-      
-      --surface-card: #18191f;
-      --surface-card-hover: #1e2027;
-      --surface-elevated: #23252e;
-      --surface-subtle: #101115;
-
-      --border-subtle: rgba(255, 255, 255, 0.06);
-      --border-card: rgba(255, 255, 255, 0.08);
-      --border-strong: rgba(255, 255, 255, 0.16);
-
-      --text-high: #f3f4f6;
-      --text-mid: #9ca3af;
-      --text-muted: #6b7280;
-      --text-disabled: #4b5563;
-
-      --accent-blue: #0078d4;
-      --accent-blue-hover: #106ebe;
-      --accent-blue-glow: #3b82f6;
-      --accent-green: #10b981;
-      --accent-green-bg: rgba(16, 185, 129, 0.12);
-      --accent-amber: #f59e0b;
-      --accent-amber-bg: rgba(245, 158, 11, 0.12);
-      --accent-red: #ef4444;
-      --accent-red-bg: rgba(239, 68, 68, 0.12);
-
-      --radius-xs: 3px;
-      --radius-sm: 5px;
-      --radius-md: 7px;
-      --radius-lg: 10px;
-
-      --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "PingFang SC", sans-serif;
-      --font-mono: "SF Mono", "Cascadia Code", Menlo, Monaco, monospace;
-    }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: var(--bg-window);
-      color: var(--text-high);
-      font-family: var(--font-system);
-      font-size: 13px;
-      line-height: 1.45;
-      -webkit-font-smoothing: antialiased;
-      user-select: none;
+    :root {
+      --bg: #111113;
+      --bg-panel: #1c1c1e;
+      --bg-hover: #2c2c2e;
+      --bg-active: rgba(10,132,255,0.08);
+      --border: rgba(255,255,255,0.07);
+      --border-m: rgba(255,255,255,0.12);
+      --text: #f5f5f7;
+      --sub: rgba(255,255,255,0.52);
+      --muted: rgba(255,255,255,0.28);
+      --blue: #0a84ff;
+      --green: #30d158;
+      --red: #ff453a;
+      --amber: #ff9f0a;
+      --purple: #bf5af2;
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
+      --mono: "SF Mono", "Cascadia Code", Menlo, monospace;
     }
 
-    .app-shell {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      height: 100%;
-      background: var(--bg-window);
-    }
+    html, body { width:100%; height:100%; background:var(--bg); color:var(--text);
+      font-family:var(--font); font-size:13px; -webkit-font-smoothing:antialiased;
+      user-select:none; overflow:hidden; }
 
-    /* ─── 顶部窗口标题栏 (macOS Native Titlebar) ─────────────────────── */
-    .app-titlebar {
-      height: 44px;
-      background: var(--bg-titlebar);
-      border-bottom: 1px solid var(--border-subtle);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-left: 80px; /* 留出交通灯位置 */
-      padding-right: 14px;
-      flex-shrink: 0;
-      -webkit-app-region: drag;
+    /* ── TITLEBAR ── */
+    .titlebar {
+      height:48px; background:var(--bg-panel); border-bottom:1px solid var(--border);
+      display:flex; align-items:center; padding:0 16px 0 80px; gap:12px;
+      -webkit-app-region:drag; flex-shrink:0;
     }
+    .brand { font-size:14px; font-weight:600; display:flex; align-items:center; gap:7px; }
+    .brand svg { color:var(--blue); }
+    .tbar-space { flex:1; }
 
-    .titlebar-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    /* 协议切换器 */
+    .proto-switcher {
+      display:flex; gap:2px; background:rgba(255,255,255,0.05);
+      border-radius:9px; padding:3px; -webkit-app-region:no-drag;
     }
-    .app-title-text {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-high);
-      letter-spacing: -0.01em;
+    .proto-btn {
+      padding:4px 12px; border-radius:7px; border:none; background:transparent;
+      color:var(--sub); font-size:12px; font-weight:500; cursor:pointer; font-family:var(--font);
+      transition:all .14s; white-space:nowrap;
     }
-    .title-badge {
-      font-size: 10px;
-      font-weight: 600;
-      padding: 1px 6px;
-      border-radius: var(--radius-xs);
-      background: rgba(255, 255, 255, 0.07);
-      color: var(--text-mid);
-    }
+    .proto-btn.active { background:var(--blue); color:#fff; }
+    .proto-btn:not(.active):hover { background:rgba(255,255,255,0.07); color:var(--text); }
 
-    .titlebar-center {
-      flex: 1;
+    /* URL 显示 */
+    .url-chip {
+      font-family:var(--mono); font-size:11px; color:var(--muted);
+      background:rgba(255,255,255,0.04); border:1px solid var(--border);
+      border-radius:6px; padding:4px 10px; cursor:pointer; -webkit-app-region:no-drag;
+      transition:color .14s; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     }
+    .url-chip:hover { color:var(--sub); }
 
-    .titlebar-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      -webkit-app-region: no-drag;
+    .tbar-btn {
+      -webkit-app-region:no-drag; padding:5px 13px; border:1px solid var(--border-m);
+      border-radius:7px; background:transparent; color:var(--sub); font-size:12px;
+      font-weight:500; cursor:pointer; font-family:var(--font); transition:all .14s;
+      display:flex; align-items:center; gap:5px; white-space:nowrap;
     }
+    .tbar-btn:hover { background:rgba(255,255,255,0.06); color:var(--text); }
 
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 3px 9px;
-      border-radius: var(--radius-sm);
-      background: var(--surface-card);
-      border: 1px solid var(--border-subtle);
-      font-size: 11px;
-      color: var(--text-mid);
-    }
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--accent-green);
-    }
-    .status-dot.amber { background: var(--accent-amber); }
-    .status-dot.red { background: var(--accent-red); }
+    /* ── BODY ── */
+    .body { display:flex; flex-direction:column; height:calc(100vh - 48px); overflow:hidden; }
 
-    /* ─── 三栏工作区 (Sidebar + Main Canvas + Inspector) ──────────── */
-    .app-workspace {
-      display: flex;
-      flex: 1;
-      height: calc(100% - 44px);
-      overflow: hidden;
+    /* ── TAB NAV ── */
+    .tab-nav {
+      display:flex; gap:0; border-bottom:1px solid var(--border);
+      padding:0 20px; flex-shrink:0; background:var(--bg-panel);
     }
+    .tab-item {
+      padding:11px 16px; font-size:13px; color:var(--sub); cursor:pointer;
+      border-bottom:2px solid transparent; margin-bottom:-1px; transition:all .14s;
+      display:flex; align-items:center; gap:6px;
+    }
+    .tab-item.active { color:var(--blue); border-bottom-color:var(--blue); }
+    .tab-item:hover:not(.active) { color:var(--text); }
 
-    /* 1. 左侧侧边栏 (200px) */
-    .app-sidebar {
-      width: 200px;
-      background: var(--bg-sidebar);
-      border-right: 1px solid var(--border-subtle);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 14px 10px;
-      flex-shrink: 0;
-    }
+    /* ── VIEWS ── */
+    .view { display:none; flex:1; overflow:hidden; flex-direction:column; }
+    .view.active { display:flex; }
 
-    .sidebar-group {
-      margin-bottom: 18px;
+    /* ── DASHBOARD VIEW ── */
+    .dash-wrap {
+      flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:20px;
     }
-    .sidebar-group-title {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-muted);
-      padding: 4px 8px 6px 8px;
-    }
+    .dash-wrap::-webkit-scrollbar { width:4px; }
+    .dash-wrap::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
 
-    .sidebar-nav-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      padding: 6px 8px;
-      border-radius: var(--radius-sm);
-      background: transparent;
-      border: none;
-      color: var(--text-mid);
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      text-align: left;
-      transition: all 100ms ease;
-      outline: none;
+    /* 顶部大数字 */
+    .kpi-row { display:flex; gap:12px; }
+    .kpi-card {
+      flex:1; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px;
+      padding:16px 18px; display:flex; flex-direction:column; gap:4px; min-width:0;
     }
-    .sidebar-nav-item:hover {
-      background: var(--surface-card);
-      color: var(--text-high);
-    }
-    .sidebar-nav-item.active {
-      background: rgba(0, 120, 212, 0.15);
-      color: var(--text-high);
-      font-weight: 600;
-    }
-    .sidebar-nav-item.active .nav-icon {
-      color: var(--accent-blue-glow);
-    }
+    .kpi-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+    .kpi-val { font-size:28px; font-weight:600; line-height:1; }
+    .kpi-sub { font-size:11px; color:var(--sub); margin-top:2px; }
 
-    .nav-label-box {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    /* 仪表盘行 */
+    .gauges-row { display:flex; gap:12px; }
+    .gauge-card {
+      flex:1; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px;
+      padding:18px; display:flex; flex-direction:column; align-items:center; gap:8px; min-width:0;
     }
-    .nav-icon {
-      flex-shrink: 0;
-      color: var(--text-muted);
-      transition: color 100ms ease;
-    }
-    .nav-count-badge {
-      font-size: 10px;
-      font-family: var(--font-mono);
-      padding: 1px 5px;
-      border-radius: var(--radius-xs);
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--text-muted);
-    }
+    .gauge-title { font-size:12px; color:var(--sub); font-weight:500; }
+    .gauge-svg { display:block; }
+    .gauge-val { font-size:22px; font-weight:700; }
+    .gauge-detail { font-size:11px; color:var(--muted); text-align:center; }
 
-    .sidebar-bottom {
-      border-top: 1px solid var(--border-subtle);
-      padding-top: 10px;
+    /* 账号迷你列表 */
+    .mini-accounts { background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .mini-head { padding:12px 16px; font-size:12px; color:var(--muted); font-weight:500;
+      text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border); }
+    .mini-row {
+      display:flex; align-items:center; padding:10px 16px; gap:12px;
+      border-bottom:1px solid rgba(255,255,255,0.03); transition:background .12s;
     }
+    .mini-row:last-child { border-bottom:none; }
+    .mini-row:hover { background:rgba(255,255,255,0.03); }
+    .mini-avatar {
+      width:26px; height:26px; border-radius:50%; background:rgba(10,132,255,0.18);
+      color:var(--blue); font-size:10px; font-weight:600; display:flex; align-items:center;
+      justify-content:center; flex-shrink:0; overflow:hidden;
+    }
+    .mini-avatar img { width:100%; height:100%; object-fit:cover; }
+    .mini-email { font-size:12px; color:var(--text); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mini-bars { display:flex; flex-direction:column; gap:3px; width:120px; flex-shrink:0; }
+    .mini-bar-row { display:flex; align-items:center; gap:5px; }
+    .mini-bar-label { font-size:10px; color:var(--muted); width:28px; flex-shrink:0; }
+    .mini-bar-track { flex:1; height:3px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; }
+    .mini-bar-fill { height:100%; border-radius:2px; transition:width .3s; }
 
-    /* 2. 中间核心画布 (Main Canvas) */
-    .app-main {
-      flex: 1;
-      background: var(--bg-canvas);
-      display: flex;
-      flex-direction: column;
-      overflow-y: overlay;
-      overflow-x: hidden;
-      padding: 18px 22px;
-      position: relative;
-    }
-    .app-main::-webkit-scrollbar { width: 5px; }
-    .app-main::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.12);
-      border-radius: 3px;
-    }
+    /* ── ACCOUNTS VIEW ── */
+    .accounts-wrap { flex:1; overflow-y:auto; padding:12px 16px; }
+    .accounts-wrap::-webkit-scrollbar { width:4px; }
+    .accounts-wrap::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
 
-    .view-container {
-      display: none;
-      flex-direction: column;
-      gap: 14px;
-      animation: fadeIn 120ms cubic-bezier(0.16, 1, 0.3, 1);
+    table { width:100%; border-collapse:collapse; }
+    thead th {
+      font-size:11px; color:var(--muted); font-weight:500; text-transform:uppercase;
+      letter-spacing:.04em; padding:0 10px 8px; text-align:left; white-space:nowrap;
     }
-    .view-container.active {
-      display: flex;
-    }
+    thead th:first-child { padding-left:14px; }
+    thead th.r { text-align:right; padding-right:14px; }
 
-    /* 3. 右侧常驻检查器 (280px) */
-    .app-inspector {
-      width: 280px;
-      background: var(--bg-inspector);
-      border-left: 1px solid var(--border-subtle);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      padding: 16px 14px;
-      overflow-y: auto;
-      flex-shrink: 0;
-    }
-    .app-inspector::-webkit-scrollbar { width: 4px; }
-    .app-inspector::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
-    }
-
-    /* ─── 通用卡片与视觉表面 ─────────────────────────────────────── */
-    .pro-card {
-      background: var(--surface-card);
-      border: 1px solid var(--border-card);
-      border-radius: var(--radius-md);
-      padding: 14px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .pro-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .pro-card-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-high);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .pro-card-caption {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    /* 按钮规范 */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      height: 28px;
-      padding: 0 10px;
-      font-size: 12px;
-      font-weight: 500;
-      font-family: inherit;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      border: 1px solid var(--border-card);
-      background: var(--surface-card);
-      color: var(--text-high);
-      outline: none;
-      transition: all 100ms ease;
-      white-space: nowrap;
-    }
-    .btn:hover {
-      background: var(--surface-card-hover);
-      border-color: var(--border-strong);
-    }
-    .btn.primary {
-      background: var(--accent-blue);
-      border-color: var(--accent-blue);
-      color: #fff;
-    }
-    .btn.primary:hover {
-      background: var(--accent-blue-hover);
-    }
-    .btn.mini {
-      height: 24px;
-      padding: 0 7px;
-      font-size: 11px;
-    }
-    .btn.danger-subtle {
-      background: transparent;
-      border-color: transparent;
-      color: var(--accent-red);
-    }
-    .btn.danger-subtle:hover {
-      background: var(--accent-red-bg);
-    }
-
-    /* ─── Hero 算力双通道 Twin Cards ────────────────────────────── */
-    .capacity-twin-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .capacity-card {
-      background: var(--surface-card);
-      border: 1px solid var(--border-card);
-      border-radius: var(--radius-md);
-      padding: 12px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .cap-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .cap-title {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text-mid);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .cap-value {
-      font-family: var(--font-mono);
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--text-high);
-      letter-spacing: -0.02em;
-    }
-    .cap-track {
-      height: 4px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .cap-fill {
-      height: 100%;
-      background: var(--accent-green);
-      border-radius: 2px;
-      transition: width 0.3s ease;
-    }
-    .cap-desc {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    /* ─── 4 大主力旗舰卡片网格 (Hero Models) ────────────────────── */
-    .hero-models-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-    .hero-model-card {
-      background: var(--surface-card);
-      border: 1px solid var(--border-card);
-      border-radius: var(--radius-md);
-      padding: 12px 14px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 8px;
-      transition: border-color 120ms ease;
-    }
-    .hero-model-card:hover {
-      border-color: rgba(255, 255, 255, 0.18);
-    }
-    .hero-model-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .hero-model-id {
-      font-family: var(--font-mono);
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--accent-blue-glow);
-    }
-    .hero-model-tag {
-      font-size: 10px;
-      padding: 1px 6px;
-      border-radius: var(--radius-xs);
-      background: rgba(0, 120, 212, 0.15);
-      color: var(--accent-blue-glow);
-    }
-    .hero-model-desc {
-      font-size: 11px;
-      color: var(--text-mid);
-      line-height: 1.4;
-    }
-    .hero-model-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-top: 6px;
-      border-top: 1px solid var(--border-subtle);
-    }
-    .hero-model-latency {
-      font-size: 11px;
-      color: var(--accent-green);
-      font-family: var(--font-mono);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    /* ─── 紧凑单测台 (Playground Lite) ──────────────────────────── */
-    .playground-box {
-      background: var(--surface-card);
-      border: 1px solid var(--border-card);
-      border-radius: var(--radius-md);
-      padding: 12px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .playground-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .playground-select {
-      height: 26px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-card);
-      border-radius: var(--radius-sm);
-      color: var(--text-high);
-      font-size: 11px;
-      padding: 0 6px;
-      outline: none;
-    }
-
-    .playground-tab-group {
-      display: flex;
-      background: var(--surface-subtle);
-      padding: 2px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-hairline);
-      gap: 2px;
-    }
-    .playground-tab {
-      padding: 3px 10px;
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text-mid);
-      border-radius: 3px;
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      transition: all var(--trans-fast);
-    }
-    .playground-tab.active {
-      background: var(--surface-card);
-      color: var(--text-high);
-      font-weight: 600;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-    }
-    .playground-panel {
-      display: none;
-    }
-    .playground-panel.active {
-      display: block;
-    }
-    .image-preview-card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0,0,0,0.4);
-      border: 1px solid var(--border-card);
-      border-radius: var(--radius-md);
-      padding: 16px;
-      margin-top: 10px;
-      min-height: 180px;
-      position: relative;
-    }
-    .channel-matrix {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      margin-top: 12px;
-      margin-bottom: 12px;
-    }
-    .channel-card {
-      background: var(--surface-card);
-      border: 1px solid var(--border-card);
-      border-radius: var(--radius-md);
-      padding: 10px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      transition: all var(--trans-fast);
-      position: relative;
-    }
-    .channel-card:hover {
-      border-color: var(--border-subtle);
-      background: var(--surface-elevated);
-    }
-    .channel-card-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .channel-card-name {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-high);
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .channel-card-desc {
-      font-size: 10px;
-      color: var(--text-muted);
-      line-height: 1.4;
-    }
-    .channel-card-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 4px;
-      font-size: 10px;
-      font-family: var(--font-mono);
-      color: var(--text-mid);
-    }
-    .live-feed-strip {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--surface-card);
-      border: 1px solid var(--border-hairline);
-      border-radius: var(--radius-sm);
-      padding: 6px 12px;
-      font-size: 11px;
-      margin-top: 12px;
-      margin-bottom: 12px;
-      color: var(--text-mid);
-    }
-    .live-feed-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-    .live-feed-text {
-      color: var(--text-high);
-      font-family: var(--font-mono);
-      font-size: 11px;
-    }
-
-    /* 表格规范 */
-    .pro-table-box {
-      width: 100%;
-      overflow-x: auto;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border-card);
-      background: var(--surface-card);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-      text-align: left;
-    }
-    th {
-      background: var(--surface-subtle);
-      color: var(--text-muted);
-      font-weight: 500;
-      padding: 7px 8px;
-      border-bottom: 1px solid var(--border-card);
-      font-size: 11px;
-      white-space: nowrap;
-    }
+    tbody tr { transition:background .1s; }
+    tbody tr:hover td { background:rgba(255,255,255,0.03); }
+    tbody tr.row-active td { background:rgba(10,132,255,0.07); }
+    tbody tr td:first-child { border-radius:8px 0 0 8px; }
+    tbody tr td:last-child  { border-radius:0 8px 8px 0; }
     td {
-      padding: 7px 8px;
-      border-bottom: 1px solid var(--border-subtle);
-      color: var(--text-high);
-      vertical-align: middle;
+      padding:10px 10px; border-bottom:1px solid rgba(255,255,255,0.03);
+      vertical-align:middle; white-space:nowrap;
     }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+    td:first-child { padding-left:14px; }
+    td:last-child  { padding-right:14px; }
+    tbody tr:last-child td { border-bottom:none; }
 
-    /* Switch 控件 */
-    .fluent-switch {
-      position: relative;
-      display: inline-block;
-      width: 34px;
-      height: 18px;
-      cursor: pointer;
+    .acell { display:flex; align-items:center; gap:9px; }
+    .avatar {
+      width:28px; height:28px; border-radius:50%; background:rgba(10,132,255,0.18);
+      color:var(--blue); font-size:11px; font-weight:600; display:flex; align-items:center;
+      justify-content:center; flex-shrink:0; overflow:hidden;
     }
-    .fluent-switch input { opacity: 0; width: 0; height: 0; }
-    .fluent-switch-track {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(255, 255, 255, 0.16);
-      border-radius: 9px;
-      transition: all 120ms ease;
-    }
-    .fluent-switch-track:before {
-      position: absolute;
-      content: "";
-      height: 14px;
-      width: 14px;
-      left: 2px;
-      bottom: 2px;
-      background: #fff;
-      border-radius: 50%;
-      transition: all 120ms ease;
-    }
-    .fluent-switch input:checked + .fluent-switch-track {
-      background: var(--accent-blue);
-    }
-    .fluent-switch input:checked + .fluent-switch-track:before {
-      transform: translateX(16px);
-    }
+    .avatar img { width:100%; height:100%; object-fit:cover; }
+    .acell-info { display:flex; flex-direction:column; gap:1px; }
+    .acell-email { font-size:13px; }
+    .acell-name  { font-size:11px; color:var(--muted); }
 
-    /* 状态微标签 */
     .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 10px;
-      font-weight: 500;
-      padding: 1px 6px;
-      border-radius: var(--radius-xs);
+      display:inline-flex; align-items:center; padding:2px 7px;
+      border-radius:4px; font-size:11px; font-weight:500;
     }
-    .badge.green {
-      background: var(--accent-green-bg);
-      color: var(--accent-green);
+    .badge-pro { background:rgba(191,90,242,0.14); color:var(--purple); }
+    .badge-std { background:rgba(255,255,255,0.06); color:var(--sub); }
+    .badge-cur { background:rgba(10,132,255,0.13); color:var(--blue); border:1px solid rgba(10,132,255,0.22); }
+
+    .dot { display:inline-block; width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    .dot-g { background:var(--green); box-shadow:0 0 5px rgba(48,209,88,.45); }
+    .dot-a { background:var(--amber); }
+    .dot-r { background:var(--red); }
+    .dot-x { background:rgba(255,255,255,0.22); }
+    .scell { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--sub); }
+
+    /* 双配额列 */
+    .qcell { display:flex; flex-direction:column; gap:4px; min-width:120px; }
+    .qrow  { display:flex; align-items:center; gap:6px; }
+    .ql    { font-size:10px; color:var(--muted); width:18px; flex-shrink:0; }
+    .qtrack { flex:1; height:3px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; }
+    .qfill  { height:100%; border-radius:2px; transition:width .3s; }
+    .qpct   { font-size:10px; color:var(--muted); width:28px; text-align:right; }
+
+    .acts { display:flex; align-items:center; justify-content:flex-end; gap:5px; }
+    .abtn {
+      padding:4px 10px; border-radius:6px; border:1px solid var(--border);
+      background:transparent; color:var(--sub); font-size:12px; cursor:pointer;
+      font-family:var(--font); transition:all .13s; white-space:nowrap;
     }
-    .badge.amber {
-      background: var(--accent-amber-bg);
-      color: var(--accent-amber);
+    .abtn:hover { background:rgba(255,255,255,0.07); color:var(--text); border-color:var(--border-m); }
+    .abtn.prim { background:rgba(10,132,255,0.13); border-color:rgba(10,132,255,0.28); color:var(--blue); }
+    .abtn.prim:hover { background:rgba(10,132,255,0.22); }
+    .abtn.ok   { background:rgba(48,209,88,0.1); border-color:rgba(48,209,88,0.22); color:var(--green); }
+
+    /* ── ENDPOINTS VIEW ── */
+    .ep-wrap { flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:16px; }
+    .ep-wrap::-webkit-scrollbar { width:4px; }
+    .ep-wrap::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
+
+    .ep-group-title { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; font-weight:500; }
+    .ep-cards { display:flex; flex-direction:column; gap:8px; }
+    .ep-card {
+      background:var(--bg-panel); border:1px solid var(--border); border-radius:10px;
+      padding:14px 16px; display:flex; align-items:center; gap:14px;
     }
-    .badge.red {
-      background: var(--accent-red-bg);
-      color: var(--accent-red);
+    .ep-icon {
+      width:32px; height:32px; border-radius:8px; display:flex; align-items:center;
+      justify-content:center; font-size:16px; flex-shrink:0;
     }
-    .badge.blue {
-      background: rgba(0, 120, 212, 0.12);
-      color: var(--accent-blue-glow);
+    .ep-icon.blue  { background:rgba(10,132,255,0.14); }
+    .ep-icon.green { background:rgba(48,209,88,0.12); }
+    .ep-icon.purple{ background:rgba(191,90,242,0.12); }
+    .ep-body { flex:1; overflow:hidden; display:flex; flex-direction:column; gap:3px; }
+    .ep-name { font-size:13px; font-weight:500; }
+    .ep-desc { font-size:11px; color:var(--sub); }
+    .ep-url  { font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:2px;
+               overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ep-copy {
+      padding:5px 12px; border:1px solid var(--border); border-radius:6px;
+      background:transparent; color:var(--muted); font-size:12px; cursor:pointer;
+      font-family:var(--font); transition:all .13s; flex-shrink:0;
     }
-    .badge.pro {
-      background: rgba(245, 158, 11, 0.12);
-      border: 1px solid rgba(245, 158, 11, 0.32);
-      color: #f59e0b;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-    }
-    .badge.std {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-card);
-      color: var(--text-muted);
-    }
-    .row-pro td:first-child {
-      border-left: 2px solid #f59e0b;
-    }
-    .row-std td:first-child {
-      border-left: 2px solid transparent;
+    .ep-copy:hover { color:var(--text); border-color:var(--border-m); }
+    .ep-copy.copied { color:var(--green); border-color:rgba(48,209,88,0.28); }
+
+    .ep-methods { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+    .ep-m {
+      font-family:var(--mono); font-size:10px; padding:2px 6px; border-radius:3px;
+      background:rgba(255,255,255,0.05); color:var(--sub); border:1px solid var(--border);
     }
 
-    /* 搜索框 */
-    .search-input {
-      height: 26px;
-      background: var(--surface-subtle);
-      border: 1px solid var(--border-card);
-      border-radius: var(--radius-sm);
-      color: var(--text-high);
-      font-size: 11px;
-      padding: 0 8px;
-      outline: none;
-      transition: border-color 100ms ease;
+    /* ── TOAST ── */
+    .toast {
+      position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(6px);
+      background:rgba(44,44,46,.96); border:1px solid rgba(255,255,255,.1);
+      backdrop-filter:blur(12px); border-radius:10px; padding:9px 18px;
+      font-size:13px; opacity:0; transition:opacity .18s, transform .18s;
+      pointer-events:none; z-index:9999; white-space:nowrap;
     }
-    .search-input:focus {
-      border-color: var(--accent-blue);
-    }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-    /* 模态弹窗 */
-    .modal-overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(4px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
+    /* ── MODAL ── */
+    .overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(4px);
+      display:none; align-items:center; justify-content:center; z-index:1000;
     }
-    .modal-box {
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-card);
-      border-radius: var(--radius-lg);
-      width: 480px;
-      max-width: 90vw;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+    .overlay.open { display:flex; }
+    .modal {
+      background:var(--bg-panel); border:1px solid rgba(255,255,255,.1); border-radius:13px;
+      padding:24px; width:420px; max-width:92vw; display:flex; flex-direction:column; gap:14px;
     }
-    .modal-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-high);
-      display: flex;
-      align-items: center;
-      gap: 6px;
+    .m-title { font-size:15px; font-weight:600; }
+    .m-sub   { font-size:12px; color:var(--sub); line-height:1.55; }
+    .m-label { font-size:12px; color:var(--sub); margin-bottom:4px; }
+    .m-input {
+      width:100%; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+      border-radius:7px; padding:9px 11px; color:var(--text); font-size:13px;
+      font-family:var(--mono); outline:none; resize:vertical;
     }
+    .m-input:focus { border-color:rgba(10,132,255,.5); }
+    .m-input::placeholder { color:var(--muted); }
+    .step { display:flex; align-items:flex-start; gap:10px; font-size:12px; color:var(--sub); line-height:1.5; }
+    .step-n {
+      width:18px; height:18px; border-radius:50%; background:rgba(10,132,255,.18); color:var(--blue);
+      font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; margin-top:1px;
+    }
+    .m-foot { display:flex; justify-content:flex-end; gap:8px; }
+    .btn-c { padding:7px 16px; border-radius:7px; border:1px solid var(--border); background:transparent; color:var(--sub); font-size:13px; cursor:pointer; font-family:var(--font); }
+    .btn-c:hover { color:var(--text); }
+    .btn-ok { padding:7px 16px; border-radius:7px; border:none; background:var(--blue); color:#fff; font-size:13px; cursor:pointer; font-family:var(--font); }
+    .btn-ok:hover { background:#409cff; }
+    .btn-ok:disabled { opacity:.45; cursor:default; }
+    .code { font-family:var(--mono); font-size:11px; background:rgba(255,255,255,.08); border-radius:3px; padding:1px 5px; }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-2px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    /* ── EMPTY ── */
+    .empty { display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:50px 24px; gap:8px; color:var(--muted); }
+    .empty p { font-size:14px; } .empty span { font-size:12px; }
   </style>
 </head>
 <body>
 
-<div class="app-shell">
-  <!-- 顶部 macOS 原生标题栏 (拖拽区) -->
-  <header class="app-titlebar" onmousedown="handleTitlebarMouseDown(event)">
-    <div class="titlebar-left">
-      <span class="app-title-text">Antigravity Manager</span>
-      <span class="title-badge">PRO 调度矩阵</span>
-    </div>
-    <div class="titlebar-center"></div>
-    <div class="titlebar-right">
-      <div class="status-pill">
-        <span class="status-dot green"></span>
-        <span style="font-size: 11px;">网关端口: 3999</span>
-      </div>
-      <div class="status-pill" style="gap: 8px;">
-        <span style="font-size: 11px; color: var(--text-mid);">故障自动切号</span>
-        <label class="fluent-switch">
-          <input type="checkbox" id="autoSwitchToggle" onchange="toggleAutoSwitch(this)" checked>
-          <span class="fluent-switch-track"></span>
-        </label>
-      </div>
-      <button class="btn primary mini" onclick="triggerAddAccountAuto()">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        <span>接入账号</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- 三栏工作区 -->
-  <div class="app-workspace">
-    <!-- 1. 左侧 Sidebar (200px) -->
-    <aside class="app-sidebar">
-      <div>
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">核心调度</div>
-          <nav>
-            <button class="sidebar-nav-item active" id="navItemHub" onclick="switchSidebarView('hub')">
-              <div class="nav-label-box">
-                <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                <span>调度总览</span>
-              </div>
-              <span class="nav-count-badge" id="navBadgeHub">实时</span>
-            </button>
-            <button class="sidebar-nav-item" id="navItemAccounts" onclick="switchSidebarView('accounts')">
-              <div class="nav-label-box">
-                <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
-                <span>账号矩阵</span>
-              </div>
-              <span class="nav-count-badge" id="navBadgeAccountsCount">--</span>
-            </button>
-            <button class="sidebar-nav-item" id="navItemAudit" onclick="switchSidebarView('audit')">
-              <div class="nav-label-box">
-                <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                <span>消耗审计</span>
-              </div>
-            </button>
-          </nav>
-        </div>
-
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">模型与路由</div>
-          <nav>
-            <button class="sidebar-nav-item" id="navItemModels" onclick="switchSidebarView('models')">
-              <div class="nav-label-box">
-                <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                <span>动态模型库</span>
-              </div>
-              <span class="nav-count-badge" id="navBadgeModelsCount">42</span>
-            </button>
-          </nav>
-        </div>
-      </div>
-
-      <div class="sidebar-bottom">
-        <div class="sidebar-group-title">系统与接入</div>
-        <nav>
-          <button class="sidebar-nav-item" id="navItemDocs" onclick="switchSidebarView('docs')">
-            <div class="nav-label-box">
-              <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-              <span>接入指引</span>
-            </div>
-          </button>
-          <button class="sidebar-nav-item" onclick="refreshAllQuotas()">
-            <div class="nav-label-box">
-              <svg class="nav-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
-              <span>同步配额</span>
-            </div>
-          </button>
-        </nav>
-      </div>
-    </aside>
-
-    <!-- 2. 中间核心画布 (Main Canvas) -->
-    <main class="app-main">
-      
-      <!-- 视图 1: 调度总览 (Hero Hub - 默认主视区) -->
-      <div id="viewHub" class="view-container active">
-        <!-- A. 真实算力双通道 Twin Cards (杜绝假进度条) -->
-        <div class="capacity-twin-grid">
-          <!-- 官方 API 算力池 -->
-          <div class="capacity-card">
-            <div class="cap-head">
-              <span class="cap-title">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                官方 API 算力池 (AI Studio)
-              </span>
-              <span class="badge green" id="gatewayApiPercentBadge">100% 充足</span>
-            </div>
-            <div class="cap-value" id="gatewayApiCapacityVal">剩余 9,000 / 9,000 次/天</div>
-            <div class="cap-track">
-              <div class="cap-fill" id="gatewayApiProgressBar" style="width: 100%;"></div>
-            </div>
-            <div class="cap-desc" id="gatewayApiSubtext">6 个健康账号 · 官方每日自动重置</div>
-          </div>
-
-          <!-- Web 逆向反代通道 -->
-          <div class="capacity-card">
-            <div class="cap-head">
-              <span class="cap-title">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                Web 逆向反代通道 (Gemini Web)
-              </span>
-              <span class="badge blue" id="gatewayWebProBadge">● 无限调用免流</span>
-            </div>
-            <div class="cap-value" id="gatewayWebQuotaVal" style="color: var(--accent-blue-glow);">
-              不限调用频次 <span style="font-size: 11px; font-weight: normal; color: var(--text-mid);">(0 官方频控)</span>
-            </div>
-            <div style="display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--text-mid);">
-              <span class="badge green">● 会话拓扑就绪</span>
-              <span id="gatewayWebSubtext">原生 Web 网页会话 · 自动续期守护</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- B. 全通道路由红绿灯全景看板 (Channel Traffic Light) -->
-        <div class="pro-card">
-          <div class="pro-card-header">
-            <div class="pro-card-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-              全通道路由健康红绿灯 (Channel Health & Traffic Light)
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <button class="btn mini primary" id="btnProbeChannels" onclick="runChannelProbes()">⚡ 一键全通道测速</button>
-              <button class="btn mini" onclick="switchSidebarView('models')">42 模型库 →</button>
-            </div>
-          </div>
-
-          <div class="channel-matrix">
-            <!-- 通道 1: Gemini 3.8 全能旗舰 -->
-            <div class="channel-card" id="channelCardText">
-              <div class="channel-card-head">
-                <div class="channel-card-name">
-                  <span class="status-dot green" id="channelDotText"></span>
-                  <span>Gemini 3.8 全能文本</span>
-                </div>
-                <span class="badge green" id="channelBadgeText">满血就绪</span>
-              </div>
-              <div class="channel-card-desc" id="channelDescText">Web 反代免流直连 · 日常代码补全与超快问答</div>
-              <div class="channel-card-footer">
-                <span id="channelLatencyText">P95 延迟 180ms</span>
-                <button class="btn mini" onclick="switchToPlayground('text', 'gemini-3.8-flash')">测试</button>
-              </div>
-            </div>
-
-            <!-- 通道 2: Gemini 3.8 深度思考 -->
-            <div class="channel-card" id="channelCardThink">
-              <div class="channel-card-head">
-                <div class="channel-card-name">
-                  <span class="status-dot green" id="channelDotThink"></span>
-                  <span style="color:#f59e0b;">Gemini 3.8 深度思考</span>
-                </div>
-                <span class="badge amber" id="channelBadgeThink">思维链就绪</span>
-              </div>
-              <div class="channel-card-desc" id="channelDescThink">原生展开推导 · 架构设计与复杂算法攻坚 (@think=0)</div>
-              <div class="channel-card-footer">
-                <span id="channelLatencyThink">原生推理链</span>
-                <button class="btn mini" onclick="switchToPlayground('text', 'gemini-3.8-live-extended-thinking')">测试</button>
-              </div>
-            </div>
-
-            <!-- 通道 3: Gemini 3.1 Pro 旗舰 (2M) -->
-            <div class="channel-card" id="channelCardPro">
-              <div class="channel-card-head">
-                <div class="channel-card-name">
-                  <span class="status-dot green" id="channelDotPro"></span>
-                  <span style="color:#a78bfa;">Gemini 3.1 Pro (2M)</span>
-                </div>
-                <span class="badge" style="background: rgba(167,139,250,0.15); color: #a78bfa;" id="channelBadgePro">Pro 专线</span>
-              </div>
-              <div class="channel-card-desc" id="channelDescPro">200万超长上下文 · 优先调度号池 Advanced 会员号</div>
-              <div class="channel-card-footer">
-                <span id="channelLatencyPro">会员优先</span>
-                <button class="btn mini" onclick="switchToPlayground('text', 'gemini-3.1-pro')">测试</button>
-              </div>
-            </div>
-
-            <!-- 通道 4: Imagen 3 真实生图 -->
-            <div class="channel-card" id="channelCardImg">
-              <div class="channel-card-head">
-                <div class="channel-card-name">
-                  <span class="status-dot amber" id="channelDotImg"></span>
-                  <span style="color:#38bdf8;">Imagen 3 高清生图</span>
-                </div>
-                <span class="badge blue" id="channelBadgeImg">生图专线</span>
-              </div>
-              <div class="channel-card-desc" id="channelDescImg">OpenAI 兼容端点 /v1/images/generations · 1024x1024</div>
-              <div class="channel-card-footer">
-                <span id="channelLatencyImg">官方 AI Studio</span>
-                <button class="btn mini" onclick="switchToPlayground('image')">真机生图</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- C. 实时 IDE 联调感知流 (Live IDE Activity Feed) -->
-        <div class="live-feed-strip">
-          <div class="live-feed-left">
-            <span class="dot-live green" style="width:6px; height:6px;"></span>
-            <span style="font-weight:600; font-size:11px; color:var(--text-mid);">实时 IDE 联调感知:</span>
-            <span class="live-feed-text" id="liveFeedText">正在监听 Cursor / Windsurf / API 客户端请求...</span>
-          </div>
-          <div style="font-size:10px; color:var(--text-muted); font-family:var(--font-mono);" id="liveFeedTime">网关保持就绪</div>
-        </div>
-
-        <!-- D. 多模态生产力测试台 (Multimodal Playground) -->
-        <div class="pro-card" style="padding: 12px 14px;">
-          <div class="pro-card-header" style="margin-bottom: 8px;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-              <div class="pro-card-title" style="white-space: nowrap;">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                多模态测试台
-              </div>
-              <div class="playground-tab-group" style="flex-shrink: 0; white-space: nowrap;">
-                <button class="playground-tab active" id="tabBtnChat" onclick="setPlaygroundTab('chat')" style="white-space: nowrap;">💬 文本与推理</button>
-                <button class="playground-tab" id="tabBtnImage" onclick="setPlaygroundTab('image')" style="white-space: nowrap;">🎨 Imagen 3 生图</button>
-              </div>
-            </div>
-
-            <!-- 右侧快捷参数 -->
-            <div id="playgroundChatControls" style="display: flex; gap: 8px; align-items: center;">
-              <select id="quickTestModel" class="playground-select" style="min-width: 190px;">
-                <option value="gemini-3.8-flash" selected>gemini-3.8-flash (最新旗舰)</option>
-                <option value="gemini-3.8-live-extended-thinking">gemini-3.8-live-thinking (深度推导)</option>
-                <option value="gemini-3.7-flash">gemini-3.7-flash (全能均衡)</option>
-                <option value="gemini-3.1-pro">gemini-3.1-pro (Pro 2M 上下文)</option>
-                <option value="gemini-2.0-flash">gemini-2.0-flash (官方 API)</option>
-              </select>
-
-              <select id="quickTestThinkLevel" class="playground-select" style="width: 125px;">
-                <option value="" selected>思考: 默认平衡</option>
-                <option value="@think=0">深度思维链 (think=0)</option>
-                <option value="@think=4">极速极简 (think=4)</option>
-              </select>
-
-              <button class="btn primary mini" id="btnRunQuickTest" onclick="runGatewayQuickTest()">
-                <span>执行单测</span>
-              </button>
-            </div>
-
-            <div id="playgroundImageControls" style="display: none; gap: 8px; align-items: center;">
-              <span class="badge blue" style="font-family:var(--font-mono);">1024 × 1024</span>
-              <button class="btn primary mini" id="btnRunImageTest" onclick="runImageGenerationTest()">
-                <span>🎨 生成图像</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- 面板 1: 文本与思维链 -->
-          <div id="panelChat" class="playground-panel active">
-            <div style="display: flex; gap: 6px; margin-bottom: 8px; align-items: center;">
-              <span style="font-size: 11px; color: var(--text-muted);">快捷提示词:</span>
-              <button class="btn mini" onclick="fillPrompt('用 Rust 实现一个高性能无锁环形缓冲区')">Rust 无锁队列</button>
-              <button class="btn mini" onclick="fillPrompt('推导 Transformer 注意力机制的显存复杂度与优化方案')">推导注意力机制</button>
-              <button class="btn mini" onclick="fillPrompt('请用 1 句话回复：网关与反代连接状态是否正常？')">连通性握手</button>
-            </div>
-            <textarea id="quickTestPromptInput" class="search-input" style="width: 100%; height: 52px; resize: none; font-size: 12px; line-height: 1.4; padding: 6px 10px;" placeholder="输入测试指令或点击上方预设提示词...">请用 1 句话回复：网关与反代连接状态是否正常？</textarea>
-            <div id="quickTestOutput" style="display:none; margin-top:8px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-card); border-radius: 4px; padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; color: var(--text-high); white-space: pre-wrap; line-height: 1.5; max-height: 150px; overflow-y: auto;"></div>
-          </div>
-
-          <!-- 面板 2: Imagen 3 真实生图 -->
-          <div id="panelImage" class="playground-panel">
-            <div style="display: flex; gap: 6px; margin-bottom: 8px; align-items: center;">
-              <span style="font-size: 11px; color: var(--text-muted);">生图示例:</span>
-              <button class="btn mini" onclick="fillImagePrompt('赛博朋克风格发光霓虹机械猫，8K 概念艺术，电影级体积光')">霓虹机械猫</button>
-              <button class="btn mini" onclick="fillImagePrompt('极简主义未来科技空间站，银白色流线型外观，深空星云背景')">未来空间站</button>
-              <button class="btn mini" onclick="fillImagePrompt('微距摄影，晨露晶莹剔透附着在翠绿叶片上，柔焦背景，真实质感')">微距露珠</button>
-            </div>
-            <div style="display: flex; gap: 8px;">
-              <input type="text" id="imagePromptInput" class="search-input" style="flex: 1; font-size: 12px; padding: 6px 10px;" value="赛博朋克风格发光霓虹机械猫，8K 概念艺术，电影级体积光" placeholder="输入生图提示词 (Prompt)...">
-            </div>
-
-            <!-- 生图渲染画布与诊断容器 -->
-            <div id="imagePreviewContainer" class="image-preview-card">
-              <div id="imagePlaceholderState" style="text-align: center; color: var(--text-muted); font-size: 11px; padding: 20px 0;">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 6px; opacity: 0.6;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                <div>点击上方「🎨 生成图像」触发真实生图测试</div>
-                <div style="font-size: 10px; color: var(--text-mid); margin-top: 2px;">支持通过 /v1/images/generations 调用 Imagen 3 官方专线</div>
-              </div>
-
-              <!-- 诊断引导卡片 (若未配置 Key 时优雅呈现) -->
-              <div id="imageKeyGuidanceState" style="display:none; text-align:center; padding:16px 20px; max-width:540px;">
-                <div style="display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; background:rgba(245,158,11,0.15); color:#f59e0b; margin-bottom:8px;">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                </div>
-                <div style="font-size:13px; font-weight:600; color:var(--text-high); margin-bottom:4px;">需绑定免费 Google AI Studio Key 点亮生图专线</div>
-                <div style="font-size:11px; color:var(--text-mid); line-height:1.5; margin-bottom:12px;" id="imageKeyGuidanceReason">
-                  Google 官方对匿名请求拦截了生图能力。在账号矩阵中为任意账号绑定一个免费获得的 Google AI Studio Key，即可立即解锁官方 Imagen 3 高清生图。
-                </div>
-                <div style="display:flex; gap:8px; justify-content:center;">
-                  <button class="btn primary mini" onclick="openBindKeyForAnyAccount()">+ 立即绑定免费 Key</button>
-                  <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn mini" style="text-decoration:none;">获取免费 Key ↗</a>
-                </div>
-              </div>
-
-              <!-- 真实图片预览展示 -->
-              <div id="imageResultState" style="display: none; width: 100%; flex-direction: column; align-items: center;">
-                <div style="position: relative; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-subtle); box-shadow: 0 4px 16px rgba(0,0,0,0.4);">
-                  <img id="imageResultImg" src="" style="max-width: 320px; max-height: 320px; display: block; object-fit: contain;">
-                </div>
-                <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center;">
-                  <span class="badge green" id="imageResultMeta">Imagen 3 · 1024x1024 · 耗时 1.8s</span>
-                  <button class="btn mini" id="btnCopyImageBase64" onclick="copyImageOutput()">复制 Base64</button>
-                  <button class="btn mini" id="btnOpenImageNewTab" onclick="openImageInNewTab()">新标签放大查看 ↗</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 视图 2: 账号矩阵 (Accounts) -->
-      <div id="viewAccounts" class="view-container">
-        <div class="pro-card">
-          <div class="pro-card-header">
-            <div class="pro-card-title" style="white-space: nowrap;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
-              账号集群矩阵
-            </div>
-            <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap;">
-              <span id="probeStatusBadge" class="badge green" style="font-size:10px; padding:2px 6px; white-space:nowrap;" title="每个账号每 10 分钟自动测试健康度与配额"><span class="dot-live green" style="width:5px; height:5px; margin-right:3px;"></span>10m巡检</span>
-              <button class="btn mini" id="btnProbeAll" onclick="triggerProbeAll()" title="立即触发全量账号 10 分钟健康与配额巡检">⚡ 立即体检</button>
-              <div style="display: flex; gap: 4px;" id="accountTierFilterGroup">
-                <button class="btn mini primary" id="btnFilterTierAll" onclick="setAccountTierFilter('all', this)">全部 (6)</button>
-                <button class="btn mini" id="btnFilterTierPro" onclick="setAccountTierFilter('pro', this)" style="color: #f59e0b;">★ PRO 会员 (2)</button>
-                <button class="btn mini" id="btnFilterTierStd" onclick="setAccountTierFilter('standard', this)">标准账号 (4)</button>
-              </div>
-              <button class="btn mini primary" onclick="triggerAddAccountAuto()">+ 接入新账号</button>
-            </div>
-          </div>
-
-          <div class="pro-table-box">
-            <table style="table-layout: fixed; width: 100%;">
-              <colgroup>
-                <col style="width: 26%;">
-                <col style="width: 16%;">
-                <col style="width: 18%;">
-                <col style="width: 22%;">
-                <col style="width: 18%;">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>账号身份</th>
-                  <th>账号特权</th>
-                  <th>健康诊断</th>
-                  <th>今日额度</th>
-                  <th style="text-align: right;">操作</th>
-                </tr>
-              </thead>
-              <tbody id="poolTableBody">
-                <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">加载账号中...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- 视图 3: 消耗审计 (Audit) -->
-      <div id="viewAudit" class="view-container">
-        <!-- 4 KPI 看板 -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-          <div class="pro-card" style="padding: 10px 12px;">
-            <div style="font-size: 11px; color: var(--text-muted);">5H 可用额度均值</div>
-            <div style="font-size: 18px; font-weight: 700; font-family: var(--font-mono); margin: 4px 0;" id="dash5hVal">--</div>
-            <div style="font-size: 10px; color: var(--text-mid);" id="dash5hSub">载入中...</div>
-          </div>
-          <div class="pro-card" style="padding: 10px 12px;">
-            <div style="font-size: 11px; color: var(--text-muted);">周度可用总容量</div>
-            <div style="font-size: 18px; font-weight: 700; font-family: var(--font-mono); margin: 4px 0;" id="dashWeeklyVal">--</div>
-            <div style="font-size: 10px; color: var(--text-mid);" id="dashWeeklySub">载入中...</div>
-          </div>
-          <div class="pro-card" style="padding: 10px 12px;">
-            <div style="font-size: 11px; color: var(--text-muted);">正常在列小号</div>
-            <div style="font-size: 18px; font-weight: 700; font-family: var(--font-mono); margin: 4px 0;" id="dashAccountVal">--</div>
-            <div style="font-size: 10px; color: var(--text-mid);" id="dashAccountSub">载入中...</div>
-          </div>
-          <div class="pro-card" style="padding: 10px 12px;">
-            <div style="font-size: 11px; color: var(--text-muted);">全局累计 Tokens</div>
-            <div style="font-size: 18px; font-weight: 700; font-family: var(--font-mono); color: var(--accent-blue-glow); margin: 4px 0;" id="dashTotalTokens">--</div>
-            <div style="font-size: 10px; color: var(--text-mid);" id="dashTokenSub">载入中...</div>
-          </div>
-        </div>
-
-        <!-- 审计日志 -->
-        <div class="pro-card">
-          <div class="pro-card-header">
-            <div class="pro-card-title">交互消耗审计明细</div>
-            <div style="display: flex; gap: 10px; align-items: center;">
-              <input type="text" id="searchInput" class="search-input" placeholder="搜索提问关键词..." oninput="renderTurnLog()">
-              <div style="display: flex; gap: 4px;" id="filterBtnGroup">
-                <button class="btn mini primary" onclick="setTimelineFilter('all', this)">全部</button>
-                <button class="btn mini" onclick="setTimelineFilter('today', this)">今天</button>
-                <button class="btn mini" onclick="setTimelineFilter('7days', this)">近7天</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="pro-table-box" style="max-height: 460px;">
-            <table style="table-layout: fixed; width: 100%;">
-              <colgroup>
-                <col style="width: 12%;">
-                <col style="width: 38%;">
-                <col style="width: 8%;">
-                <col style="width: 14%;">
-                <col style="width: 13%;">
-                <col style="width: 15%;">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>时间戳</th>
-                  <th>用户指令 (Prompt)</th>
-                  <th>步骤</th>
-                  <th style="text-align: right;">输入 (Input)</th>
-                  <th style="text-align: right;">输出 (Output)</th>
-                  <th style="text-align: right;">总计 (Total)</th>
-                </tr>
-              </thead>
-              <tbody id="turnTableBody">
-                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">加载审计日志中...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- 视图 4: 动态模型库 (Models) -->
-      <div id="viewModels" class="view-container">
-        <div class="pro-card">
-          <div class="pro-card-header">
-            <div class="pro-card-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              官网实时动态模型路由矩阵 (42 模型全量库)
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <input type="text" id="modelFilterInput" class="search-input" placeholder="搜索模型名称或特性..." oninput="renderGatewayModelTable()" style="width: 160px;">
-              <div style="display: flex; gap: 4px;" id="modelCategoryTabs">
-                <button class="btn mini primary" onclick="setModelCategoryFilter('all', this)">全部</button>
-                <button class="btn mini" onclick="setModelCategoryFilter('flagship', this)">旗舰</button>
-                <button class="btn mini" onclick="setModelCategoryFilter('thinking', this)">深度思考</button>
-                <button class="btn mini" onclick="setModelCategoryFilter('pro', this)">Pro</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="pro-table-box" style="max-height: 520px;">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 220px;">模型调用标识 (Model ID)</th>
-                  <th style="width: 120px;">调度通道</th>
-                  <th style="width: 120px;">思考等级</th>
-                  <th>特性与场景说明</th>
-                  <th style="width: 70px;">状态</th>
-                  <th style="text-align: right; width: 110px;">快捷操作</th>
-                </tr>
-              </thead>
-              <tbody id="gatewayModelTableBody">
-                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">加载模型矩阵中...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- 视图 5: 接入指引 (Docs) -->
-      <div id="viewDocs" class="view-container">
-        <div class="pro-card">
-          <div class="pro-card-title" style="color: var(--accent-blue-glow);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-            主流客户端极速配置指南 (OpenAI 兼容 /v1)
-          </div>
-          <div style="display: flex; gap: 6px; margin-top: 8px;" id="docsClientTabs">
-            <button class="btn mini primary" onclick="switchClientDoc('cursor', this)">Cursor / VS Code</button>
-            <button class="btn mini" onclick="switchClientDoc('cline', this)">Cline / Roo Code</button>
-            <button class="btn mini" onclick="switchClientDoc('chatbox', this)">ChatBox</button>
-            <button class="btn mini" onclick="switchClientDoc('python', this)">Python SDK</button>
-          </div>
-
-          <div id="docCursor" class="client-doc-pane" style="margin-top: 10px;">
-            <div style="font-size: 12px; color: var(--text-mid); margin-bottom: 8px;">
-              <b>Cursor 设置步骤：</b> 打开 Cursor Settings → Models → 开启 <b>OpenAI API Key</b>，输入 <code>sk-antigravity</code>。点击 <b>Override OpenAI Base URL</b>，填入 <code>http://localhost:3999/v1</code>。下方添加 <code>gemini-3.8-flash</code> 即可使用。
-            </div>
-            <pre style="background: #090a0d; padding: 12px; border-radius: 6px; border: 1px solid var(--border-card); font-family: var(--font-mono); font-size: 11px; color: #a78bfa; overflow-x: auto;">Base URL: http://localhost:3999/v1
-API Key:  sk-antigravity
-Model:    gemini-3.8-flash (或 gemini-3.8-flash@think=0)</pre>
-          </div>
-
-          <div id="docCline" class="client-doc-pane" style="display: none; margin-top: 10px;">
-            <div style="font-size: 12px; color: var(--text-mid); margin-bottom: 8px;">
-              <b>Cline / Roo Code 设置：</b> API Provider 选择 <b>OpenAI Compatible</b>，Base URL 填写 <code>http://localhost:3999/v1</code>，API Key 输入 <code>sk-antigravity</code>。
-            </div>
-            <pre style="background: #090a0d; padding: 12px; border-radius: 6px; border: 1px solid var(--border-card); font-family: var(--font-mono); font-size: 11px; color: #a78bfa; overflow-x: auto;">Base URL: http://localhost:3999/v1
-API Key:  sk-antigravity
-Model ID: gemini-3.8-flash</pre>
-          </div>
-
-          <div id="docChatbox" class="client-doc-pane" style="display: none; margin-top: 10px;">
-            <pre style="background: #090a0d; padding: 12px; border-radius: 6px; border: 1px solid var(--border-card); font-family: var(--font-mono); font-size: 11px; color: #a78bfa; overflow-x: auto;">API 模式:   OpenAI API 兼容
-API 域名:   http://localhost:3999
-API Key:    sk-antigravity
-模型名称:   gemini-3.8-flash</pre>
-          </div>
-
-          <div id="docPython" class="client-doc-pane" style="display: none; margin-top: 10px;">
-            <pre style="background: #090a0d; padding: 12px; border-radius: 6px; border: 1px solid var(--border-card); font-family: var(--font-mono); font-size: 11px; color: #a78bfa; overflow-x: auto;">from openai import OpenAI
-
-client = OpenAI(
-    base_url="http://localhost:3999/v1",
-    api_key="sk-antigravity"
-)
-
-resp = client.chat.completions.create(
-    model="gemini-3.8-flash",
-    messages=[{"role": "user", "content": "你好，测试网关连通性"}]
-)
-print(resp.choices[0].message.content)</pre>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <!-- 3. 右侧常驻检查器 (Inspector Panel, 280px) -->
-    <aside class="app-inspector">
-      <!-- A. 当前挂载主凭据 -->
-      <div class="pro-card" style="padding: 12px;">
-        <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
-          <span>当前挂载主凭据</span>
-          <div style="display: flex; gap: 4px; align-items: center;">
-            <span class="badge" id="activeAccountTierBadge">PRO 会员</span>
-            <span class="badge blue">Keychain</span>
-          </div>
-        </div>
-        <div style="font-size: 13px; font-weight: 600; color: var(--text-high); word-break: break-all;" id="activeEmailText">
-          读取中...
-        </div>
-        <div style="font-size: 11px; color: var(--text-mid); display: flex; align-items: center; gap: 4px;" id="activeAccountPrivilegeText">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          <span>自动续期: 剩余充足</span>
-        </div>
-        <div style="display: flex; gap: 6px; margin-top: 4px;">
-          <button class="btn mini" onclick="triggerAutoAuth(currentActiveEmail)" style="flex: 1;">重新提取凭据</button>
-          <button class="btn mini" onclick="switchSidebarView('accounts')" style="flex: 1;">切换小号</button>
-        </div>
-      </div>
-
-      <!-- B. 网关极速接入卡片 -->
-      <div class="pro-card" style="padding: 12px;">
-        <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
-          <span>网关端点 (Base URL)</span>
-          <span class="badge green">● 端口 3999</span>
-        </div>
-        <div style="background: var(--surface-subtle); padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border-card); display: flex; align-items: center; justify-content: space-between;">
-          <code style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-blue-glow);" id="gatewayBaseUrlText">http://localhost:3999/v1</code>
-          <button class="btn mini" onclick="copyText('http://localhost:3999/v1', this)">复制</button>
-        </div>
-        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
-          API Key: <code style="font-family: var(--font-mono); color: var(--text-mid);">sk-antigravity</code>
-        </div>
-        <button class="btn mini primary" onclick="copyCursorConfig(this)" style="margin-top: 4px; width: 100%; justify-content: center;">
-          一键复制 Cursor 配置片段
-        </button>
-      </div>
-
-      <!-- C. 号池健康雷达 -->
-      <div class="pro-card" style="padding: 12px;">
-        <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
-          <span>号池分级雷达</span>
-          <span class="badge green" id="radarHealthBadge">健康</span>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px; font-size: 11px;">
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-mid);">PRO 会员专线:</span>
-            <span style="font-family: var(--font-mono); font-weight: 600; color: #f59e0b;" id="radarProAccountsText">2 / 6 (高优先)</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-mid);">标准基础账号:</span>
-            <span style="font-family: var(--font-mono); font-weight: 600;" id="radarStdAccountsText">4 / 6 (常规)</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-mid);">官方 1500 API 池:</span>
-            <span style="font-family: var(--font-mono); color: var(--accent-green);" id="radarApiCapacityText">9,000 次/天</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-mid);">Web 反代通道:</span>
-            <span style="font-family: var(--font-mono); color: var(--accent-blue-glow);">不限次畅连</span>
-          </div>
-        </div>
-      </div>
-    </aside>
+<!-- 顶栏 -->
+<div class="titlebar">
+  <div class="brand">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </svg>
+    Antigravity Manager
   </div>
+  <div class="tbar-space"></div>
+  <div class="proto-switcher" id="protoSwitcher">
+    <button class="proto-btn active" data-proto="openai" onclick="setProto('openai')">OpenAI</button>
+    <button class="proto-btn" data-proto="claude" onclick="setProto('claude')">Claude</button>
+    <button class="proto-btn" data-proto="gemini" onclick="setProto('gemini')">Gemini</button>
+  </div>
+  <span class="url-chip" id="urlChip" onclick="copyChipUrl()" title="点击复制">http://localhost:3999/v1</span>
+  <button class="tbar-btn" onclick="addAccount()">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    添加账号
+  </button>
 </div>
 
-<!-- Modal 1: 绑定 AI Key -->
-<div class="modal-overlay" id="modalBindAiKey">
-  <div class="modal-box">
-    <div class="modal-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-      绑定 Google AI Studio 官方 1500次 API Key
+<!-- 主体 -->
+<div class="body">
+
+  <!-- Tab 导航 -->
+  <div class="tab-nav">
+    <div class="tab-item active" id="tab-dash" onclick="switchTab('dash')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      仪表盘
     </div>
-    <div style="font-size: 12px; color: var(--text-mid);">
-      为账号 <b id="bindAiKeyEmail" style="color: var(--accent-blue-glow);"></b> 配置官方每日 1500 次高速额度。
+    <div class="tab-item" id="tab-accounts" onclick="switchTab('accounts')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      账号矩阵
     </div>
-    <button class="btn primary" onclick="openExternalUrl('https://aistudio.google.com/app/apikey')" style="width: 100%; justify-content: center;">
-      前往 Google AI Studio 生成 Key ↗
-    </button>
-    <input type="password" id="inputAiKey" class="search-input" placeholder="AIzaSy..." style="height: 32px; width: 100%;">
-    <div id="bindAiKeyNotice" style="font-size: 11px; display: none;"></div>
-    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
-      <button class="btn" onclick="closeBindAiKeyModal()">取消</button>
-      <button class="btn primary" id="btnSubmitBindAiKey" onclick="submitBindAiKey()">保存并测试</button>
+    <div class="tab-item" id="tab-endpoints" onclick="switchTab('endpoints')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      接入端点
+    </div>
+    <div class="tab-item" id="tab-audit" onclick="switchTab('audit')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      请求审计
     </div>
   </div>
+
+  <!-- 仪表盘 View -->
+  <div class="view active" id="view-dash">
+    <div class="dash-wrap">
+
+      <!-- KPI 卡片行 -->
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-label">账号总数</div>
+          <div class="kpi-val" id="kpiAccounts" style="color:var(--blue)">—</div>
+          <div class="kpi-sub" id="kpiProSub">Pro — · Standard —</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">API Studio 日总量</div>
+          <div class="kpi-val" id="kpiCapacity" style="color:var(--text)">—</div>
+          <div class="kpi-sub" id="kpiUsedSub">今日已用 — 次</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Web 反代</div>
+          <div class="kpi-val" id="kpiWebPro" style="color:var(--green)">—</div>
+          <div class="kpi-sub">Pro 账号专线（无限量）</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Web 已绑定</div>
+          <div class="kpi-val" id="kpiWebBound" style="color:var(--amber)">—</div>
+          <div class="kpi-sub">个账号已绑定 Cookie</div>
+        </div>
+      </div>
+
+      <!-- 仪表盘 3 个圆形仪表 -->
+      <div class="gauges-row">
+        <div class="gauge-card">
+          <div class="gauge-title">API Studio · 日剩余</div>
+          <svg class="gauge-svg" width="120" height="68" viewBox="0 0 120 68">
+            <path d="M10 64 A50 50 0 0 1 110 64" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8" stroke-linecap="round"/>
+            <path id="gApiDay" d="M10 64 A50 50 0 0 1 110 64" fill="none" stroke="var(--blue)" stroke-width="8" stroke-linecap="round"
+              stroke-dasharray="157" stroke-dashoffset="0" style="transition:stroke-dashoffset .5s ease"/>
+          </svg>
+          <div class="gauge-val" id="gApiDayPct" style="color:var(--blue)">—%</div>
+          <div class="gauge-detail" id="gApiDayDetail">— / — 次</div>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-title">Gemini · 本周剩余</div>
+          <svg class="gauge-svg" width="120" height="68" viewBox="0 0 120 68">
+            <path d="M10 64 A50 50 0 0 1 110 64" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8" stroke-linecap="round"/>
+            <path id="gGemWeek" d="M10 64 A50 50 0 0 1 110 64" fill="none" stroke="var(--green)" stroke-width="8" stroke-linecap="round"
+              stroke-dasharray="157" stroke-dashoffset="0" style="transition:stroke-dashoffset .5s ease"/>
+          </svg>
+          <div class="gauge-val" id="gGemWeekPct" style="color:var(--green)">—%</div>
+          <div class="gauge-detail" id="gGemWeekDetail">综合账号平均</div>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-title">Claude & GPT · 本周剩余</div>
+          <svg class="gauge-svg" width="120" height="68" viewBox="0 0 120 68">
+            <path d="M10 64 A50 50 0 0 1 110 64" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8" stroke-linecap="round"/>
+            <path id="gClaudeWeek" d="M10 64 A50 50 0 0 1 110 64" fill="none" stroke="var(--purple)" stroke-width="8" stroke-linecap="round"
+              stroke-dasharray="157" stroke-dashoffset="0" style="transition:stroke-dashoffset .5s ease"/>
+          </svg>
+          <div class="gauge-val" id="gClaudeWeekPct" style="color:var(--purple)">—%</div>
+          <div class="gauge-detail" id="gClaudeWeekDetail">综合账号平均</div>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-title">Gemini · 5小时窗口</div>
+          <svg class="gauge-svg" width="120" height="68" viewBox="0 0 120 68">
+            <path d="M10 64 A50 50 0 0 1 110 64" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8" stroke-linecap="round"/>
+            <path id="gGem5h" d="M10 64 A50 50 0 0 1 110 64" fill="none" stroke="var(--amber)" stroke-width="8" stroke-linecap="round"
+              stroke-dasharray="157" stroke-dashoffset="0" style="transition:stroke-dashoffset .5s ease"/>
+          </svg>
+          <div class="gauge-val" id="gGem5hPct" style="color:var(--amber)">—%</div>
+          <div class="gauge-detail" id="gGem5hDetail">综合账号平均</div>
+        </div>
+      </div>
+
+      <!-- 账号简表 -->
+      <div class="mini-accounts">
+        <div class="mini-head">账号配额概览</div>
+        <div id="miniList"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 账号矩阵 View -->
+  <div class="view" id="view-accounts">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px 8px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:500;">账号矩阵</span>
+      <button class="abtn" id="probeBtn" onclick="probeAll()" style="font-size:11px;">刷新配额</button>
+    </div>
+    <div class="accounts-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>账号</th>
+            <th>级别</th>
+            <th>API Key</th>
+            <th>Web 登录态</th>
+            <th>Gemini 周 / 5h</th>
+            <th>Claude 周 / 5h</th>
+            <th class="r">操作</th>
+          </tr>
+        </thead>
+        <tbody id="accountTable">
+          <tr><td colspan="7"><div class="empty"><p>加载中…</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 接入端点 View -->
+  <div class="view" id="view-endpoints">
+    <div class="ep-wrap" id="epWrap">
+      <!-- 由 JS 填充 -->
+    </div>
+  </div>
+
+  <!-- 请求审计 View (企业级可观测性面板) -->
+  <div class="view" id="view-audit">
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;height:100%;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:12px 16px;">
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(48,209,88,0.5);"></span>
+            请求审计与流量可观测流水
+          </div>
+          <span id="auditCountBadge" style="font-size:11px;background:rgba(255,255,255,0.06);padding:2px 8px;border-radius:10px;color:var(--sub);font-family:var(--mono);">0 条记录</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--sub);cursor:pointer;">
+            <input type="checkbox" id="auditAutoRefresh" checked onchange="toggleAuditAutoRefresh()" style="accent-color:var(--blue)">
+            自动刷新 (3s)
+          </label>
+          <button class="abtn" onclick="loadAuditLogs()" style="font-size:12px;padding:4px 10px;">🔄 刷新</button>
+          <button class="abtn" onclick="clearAuditLogs()" style="font-size:12px;padding:4px 10px;color:var(--red);">🗑️ 清空</button>
+        </div>
+      </div>
+
+      <!-- 审计日志列表表格 -->
+      <div style="flex:1;overflow-y:auto;background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">
+              <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:500;width:75px;">时间</th>
+              <th style="padding:10px 10px;text-align:left;color:var(--muted);font-weight:500;width:80px;">状态</th>
+              <th style="padding:10px 10px;text-align:left;color:var(--muted);font-weight:500;width:150px;">通道与模式</th>
+              <th style="padding:10px 10px;text-align:left;color:var(--muted);font-weight:500;width:130px;">模型</th>
+              <th style="padding:10px 10px;text-align:left;color:var(--muted);font-weight:500;width:125px;">时延 (TTFT)</th>
+              <th style="padding:10px 10px;text-align:left;color:var(--muted);font-weight:500;">用户提问 (Prompt 摘要)</th>
+              <th style="padding:10px 14px;text-align:right;color:var(--muted);font-weight:500;width:60px;">操作</th>
+            </tr>
+          </thead>
+          <tbody id="auditTableBody">
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: 审计详情弹窗 -->
+  <div class="overlay" id="modalAuditDetail">
+    <div class="modal" style="max-width:680px;width:95vw;">
+      <div class="m-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>请求审计详情</span>
+        <span id="detailStatusBadge" style="font-size:11px;padding:2px 8px;border-radius:4px;"></span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;max-height:70vh;overflow-y:auto;">
+        <div style="display:flex;gap:12px;font-size:12px;color:var(--sub);background:rgba(255,255,255,0.03);padding:8px 12px;border-radius:6px;flex-wrap:wrap;">
+          <div>通道：<strong id="detailChannel" style="color:var(--text);"></strong></div>
+          <div>模型：<strong id="detailModel" style="color:var(--blue);"></strong></div>
+          <div>耗时：<strong id="detailDuration" style="color:var(--text);"></strong></div>
+          <div>账号：<strong id="detailAccount" style="color:var(--text);"></strong></div>
+        </div>
+        <div>
+          <div class="m-label">提问内容 (Prompt)</div>
+          <pre id="detailPrompt" style="margin:0;padding:10px;background:rgba(0,0,0,0.3);border-radius:6px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-all;max-height:160px;overflow-y:auto;color:#d1d5db;"></pre>
+        </div>
+        <div>
+          <div class="m-label" style="display:flex;justify-content:space-between;">
+            <span>响应结果 (Response)</span>
+            <button class="abtn" onclick="copyDetailResponse()" style="font-size:10px;padding:2px 6px;">复制回答</button>
+          </div>
+          <pre id="detailResponse" style="margin:0;padding:10px;background:rgba(0,0,0,0.3);border-radius:6px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow-y:auto;color:#10b981;"></pre>
+        </div>
+      </div>
+      <div class="m-foot">
+        <button class="btn-c" onclick="document.getElementById('modalAuditDetail').classList.remove('open')">关闭</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
-<!-- Modal 2: 绑定 Web 会话凭证 -->
-<div class="modal-overlay" id="modalBindWebAuth">
-  <div class="modal-box">
-    <div class="modal-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-      绑定 Gemini Web 反代凭据
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Modal: 浏览器绑定 Web 反代登录态 (人工操作) -->
+<div class="overlay" id="modalCapture">
+  <div class="modal" style="max-width:480px;">
+    <div class="m-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>绑定 Web 反代登录态</span>
+      <span id="capProfileBadge" style="font-size:11px;color:var(--blue);background:rgba(10,132,255,0.1);padding:2px 6px;border-radius:4px;font-weight:normal;"></span>
     </div>
-    <div style="font-size: 12px; color: var(--text-mid);">
-      为账号 <b id="bindWebAuthEmail" style="color: var(--accent-blue-glow);"></b> 手动同步 Cookie 会话。
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;background:rgba(10,132,255,0.08);border:1px solid rgba(10,132,255,0.2);border-radius:8px;">
+      <div style="font-size:12px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        账号：<strong id="capEmail" style="color:var(--blue)"></strong>
+      </div>
+      <button class="abtn" onclick="reopenChrome()" style="font-size:11px;padding:4px 10px;flex-shrink:0;background:rgba(10,132,255,0.15);color:var(--blue);border:1px solid rgba(10,132,255,0.3);">🌐 立即打开 Gemini 官网</button>
     </div>
-    <button class="btn" onclick="openExternalUrl('https://gemini.google.com')" style="width: 100%; justify-content: center;">
-      打开 gemini.google.com 网页 ↗
-    </button>
-    <textarea id="inputWebCookie" class="search-input" rows="3" placeholder="__Secure-1PSID=...;" style="height: 70px; width: 100%; padding: 6px;"></textarea>
-    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
-      <input type="checkbox" id="chkIsPro" checked>
-      <label for="chkIsPro">已开通 Gemini Advanced (Pro) 会员</label>
+
+    <!-- 方式 1：控制台 copy 指令（最快捷·不受 CSP 限制） -->
+    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;font-weight:600;color:var(--text);">方式 1：控制台一键提取（推荐）</span>
+        <button class="abtn prim" id="copyCmdBtn" onclick="copyConsoleCmd()" style="font-size:11px;padding:3px 10px;">📋 复制提取命令</button>
+      </div>
+      <div style="font-size:11px;color:var(--sub);line-height:1.6;">
+        在打开的 Gemini 官网（<a href="javascript:void(0)" onclick="reopenChrome()" style="color:var(--blue);text-decoration:underline;">gemini.google.com/app</a>）按 <span class="code">F12</span> 进入 <strong>Console</strong>，粘贴或手动敲入：
+        <div style="margin:4px 0;padding:6px 8px;background:rgba(0,0,0,0.3);border-radius:5px;font-family:var(--mono);color:#58a6ff;font-size:12px;">copy(document.cookie)</div>
+        敲<strong>回车</strong>后，Cookie 自动存入系统剪贴板（若提示 Warning，输入 <span class="code">allow pasting</span> 回车即可解锁）。
+      </div>
     </div>
-    <div id="bindWebAuthNotice" style="font-size: 11px; display: none;"></div>
-    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
-      <button class="btn" onclick="closeBindWebAuthModal()">取消</button>
-      <button class="btn primary" id="btnSubmitBindWebAuth" onclick="submitBindWebAuth()">保存凭据</button>
+
+    <!-- 方式 2：粘贴与保存 -->
+    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;font-weight:600;color:var(--text);">Cookie 字符串</span>
+        <button class="abtn" onclick="pasteFromClipboard()" style="font-size:11px;padding:2px 8px;">📋 从剪贴板粘贴</button>
+      </div>
+      <textarea class="m-input" id="capManualCookie" rows="3" placeholder="在 Chrome 执行完 copy 命令后，点上方「从剪贴板粘贴」或在此按 Cmd+V 粘贴..."></textarea>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);cursor:pointer;">
+        <input type="checkbox" id="capIsPro" checked style="accent-color:var(--blue)">
+        该账号为 Gemini Advanced (Pro) 会员
+      </label>
+    </div>
+
+    <div class="m-foot">
+      <button class="btn-c" onclick="closeCaptureModal()">取消</button>
+      <button class="btn-ok" id="capSaveManualBtn" onclick="submitManualCookie()">保存并激活绑定</button>
     </div>
   </div>
 </div>
 
 <script>
-  let serverBase = 'http://localhost:3999';
-  function api(path) { return serverBase + path; }
+  const API = p => 'http://localhost:3999' + p;
 
-  let currentActiveEmail = null;
-  let cachedAccounts = [];
-  let cachedGatewayModels = [];
-  let currentModelCategory = 'all';
-  let allTurnsData = [];
-  let currentFilter = 'all';
+  // ─── 协议切换 ───────────────────────────────────────────────
+  const PROTO_URLS = {
+    openai: 'http://localhost:3999/v1',
+    claude: 'http://localhost:3999/claude/v1',
+    gemini: 'http://localhost:3999/gemini/v1beta'
+  };
+  let currentProto = 'openai';
+  function setProto(p) {
+    currentProto = p;
+    document.querySelectorAll('.proto-btn').forEach(b => b.classList.toggle('active', b.dataset.proto === p));
+    document.getElementById('urlChip').textContent = PROTO_URLS[p];
+    renderEndpoints();
+  }
+  function copyChipUrl() { copyText(PROTO_URLS[currentProto]); }
 
-  function handleTitlebarMouseDown(e) {
-    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('label')) return;
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dragWindow) {
-      window.webkit.messageHandlers.dragWindow.postMessage({});
-    }
+  // ─── Tab 切换 ───────────────────────────────────────────────
+  function switchTab(tab) {
+    ['dash','accounts','endpoints','audit'].forEach(t => {
+      document.getElementById('tab-'+t)?.classList.toggle('active', t===tab);
+      document.getElementById('view-'+t)?.classList.toggle('active', t===tab);
+    });
+    if (tab === 'endpoints') renderEndpoints();
+    if (tab === 'audit') loadAuditLogs();
   }
 
-  function openExternalUrl(url) {
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.openExternal) {
-      window.webkit.messageHandlers.openExternal.postMessage(url);
-    } else {
-      window.open(url, '_blank');
-    }
+  // ─── 复制 ───────────────────────────────────────────────────
+  function copyText(t) {
+    navigator.clipboard?.writeText(t).catch(() => {
+      const el = document.createElement('textarea');
+      el.value = t; document.body.appendChild(el); el.select();
+      document.execCommand('copy'); document.body.removeChild(el);
+    });
+    showToast('已复制');
+  }
+  function copyUrl(url, btn) {
+    copyText(url);
+    if (btn) { btn.textContent='已复制'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent='复制'; btn.classList.remove('copied'); }, 1800); }
   }
 
-  function triggerAutoAuth(email) {
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.startAutoAuth) {
-      window.webkit.messageHandlers.startAutoAuth.postMessage({ email, mode: 'sync' });
-    } else {
-      openBindWebAuthModal(email);
-    }
+  // ─── Toast ─────────────────────────────────────────────────
+  let _tTimer;
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(_tTimer); _tTimer = setTimeout(() => el.classList.remove('show'), 2000);
   }
 
-  function triggerAddAccountAuto() {
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.startAutoAuth) {
+  // ─── Modal 控制 ──────────────────────────────────────────
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  // ─── 添加账号 & 自动 Auth ───────────────────────────────────
+  function addAccount() {
+    if (window.webkit?.messageHandlers?.startAutoAuth) {
       window.webkit.messageHandlers.startAutoAuth.postMessage({ mode: 'new' });
-    } else {
-      window.open(api('/auth/google'), '_blank');
-    }
+    } else { window.open(API('/auth/google'), '_blank'); }
   }
 
-  // 视图切换
-  function switchSidebarView(viewKey) {
-    const viewMap = {
-      hub: document.getElementById('viewHub'),
-      accounts: document.getElementById('viewAccounts'),
-      audit: document.getElementById('viewAudit'),
-      models: document.getElementById('viewModels'),
-      docs: document.getElementById('viewDocs')
-    };
-    const navMap = {
-      hub: document.getElementById('navItemHub'),
-      accounts: document.getElementById('navItemAccounts'),
-      audit: document.getElementById('navItemAudit'),
-      models: document.getElementById('navItemModels'),
-      docs: document.getElementById('navItemDocs')
-    };
+  // ─── 浏览器绑定 Web 反代登录态（纯人工操作） ─────────────────────────
+  let captureTargetEmail = null;
+  let syncWatchTimer = null;
 
-    for (const [k, el] of Object.entries(viewMap)) {
-      if (!el) continue;
-      if (k === viewKey) {
-        el.classList.add('active');
-        navMap[k]?.classList.add('active');
-      } else {
-        el.classList.remove('active');
-        navMap[k]?.classList.remove('active');
-      }
-    }
-  }
+  async function triggerWebLogin(email) {
+    captureTargetEmail = email;
+    const elEmail = document.getElementById('capEmail');
+    if (elEmail) elEmail.textContent = email;
+    const elInput = document.getElementById('capManualCookie');
+    if (elInput) elInput.value = '';
+    const elPro = document.getElementById('capIsPro');
+    if (elPro) elPro.checked = true;
+    const elBadge = document.getElementById('capProfileBadge');
+    if (elBadge) elBadge.textContent = '';
+    const elModal = document.getElementById('modalCapture');
+    if (elModal) elModal.classList.add('open');
 
-  window.switchSidebarView = switchSidebarView;
-  window.addEventListener('hashchange', () => {
-    const h = location.hash.replace('#', '');
-    if (h) switchSidebarView(h);
-  });
-  if (location.hash) {
-    const h = location.hash.replace('#', '');
-    if (h) switchSidebarView(h);
-  }
-
-  // 键盘快捷键 1-5
-  window.addEventListener('keydown', (e) => {
-    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
-    if (e.key === '1') switchSidebarView('hub');
-    else if (e.key === '2') switchSidebarView('accounts');
-    else if (e.key === '3') switchSidebarView('audit');
-    else if (e.key === '4') switchSidebarView('models');
-    else if (e.key === '5') switchSidebarView('docs');
-  });
-
-  function switchClientDoc(client, btn) {
-    document.querySelectorAll('#docsClientTabs .btn').forEach(b => b.classList.remove('primary'));
-    if (btn) btn.classList.add('primary');
-    document.querySelectorAll('.client-doc-pane').forEach(p => p.style.display = 'none');
-    const pane = document.getElementById('doc' + client.charAt(0).toUpperCase() + client.slice(1));
-    if (pane) pane.style.display = 'block';
-  }
-
-  function copyText(text, btn) {
-    navigator.clipboard.writeText(text).then(() => {
-      const origin = btn.textContent;
-      btn.textContent = '已复制!';
-      setTimeout(() => { btn.textContent = origin; }, 1200);
-    });
-  }
-
-  function copyCursorConfig(btn) {
-    const config = {
-      "model": "gemini-3.8-flash",
-      "baseUrl": "http://localhost:3999/v1",
-      "apiKey": "sk-antigravity"
-    };
-    navigator.clipboard.writeText(JSON.stringify(config, null, 2)).then(() => {
-      const origin = btn.textContent;
-      btn.textContent = '已复制 Cursor JSON!';
-      setTimeout(() => { btn.textContent = origin; }, 1200);
-    });
-  }
-
-  // 数据拉取与渲染
-  async function loadData() {
-    await Promise.all([loadStatus(), loadAccounts(), loadTurnLog()]);
-  }
-
-  async function loadStatus() {
+    // 在系统 Chrome 中用对应 Profile 唤起 Gemini
     try {
-      const res = await fetch(api('/api/status'));
-      const data = await res.json();
-
-      const activeEmail = data.pool?.active || data.activeEmail || (data.currentSystemUser?.email);
-      if (activeEmail) {
-        currentActiveEmail = activeEmail;
-        const activeEl = document.getElementById('activeEmailText');
-        if (activeEl) {
-          const userName = data.currentSystemUser?.name || '';
-          activeEl.innerHTML = `
-            <div style="font-weight:600; color:var(--text-high); font-size:13px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${userName ? userName : activeEmail}</div>
-            <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${activeEmail}</div>
-          `;
+      fetch(API('/api/web-login-open'), {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ email })
+      }).then(r => r.json()).then(d => {
+        if (d.success && d.profileDir && elBadge) {
+          elBadge.textContent = d.profileDir;
         }
-      }
+      }).catch(() => {});
+    } catch(e) {}
+  }
 
-      const rawAccounts = Array.isArray(data.pool?.accounts) ? data.pool.accounts : Object.values(data.pool?.accounts || {});
-      cachedAccounts = rawAccounts;
+  function closeCaptureModal() {
+    clearInterval(syncWatchTimer);
+    document.getElementById('modalCapture').classList.remove('open');
+  }
 
-      // 统计与 4 KPI 看板
-      let sum5h = 0, count5h = 0, available5hCount = 0;
-      let sumWk = 0, countWk = 0;
-      let readyAccountsCount = 0;
-
-      rawAccounts.forEach(a => {
-        const q = a.quota;
-        if (q?.status === 'OK') readyAccountsCount++;
-        const frac5h = q?.gemini_5h?.remainingFraction;
-        if (typeof frac5h === 'number') {
-          sum5h += frac5h;
-          count5h++;
-          if (frac5h > 0.05) available5hCount++;
-        }
-        const fracWk = q?.gemini_weekly?.remainingFraction;
-        if (typeof fracWk === 'number') {
-          sumWk += fracWk;
-          countWk++;
-        }
+  function reopenChrome() {
+    if (captureTargetEmail) {
+      fetch(API('/api/web-login-open'), {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ email: captureTargetEmail })
       });
-
-      const avg5h = count5h > 0 ? Math.round((sum5h / count5h) * 100) : 100;
-      const avgWk = countWk > 0 ? Math.round((sumWk / countWk) * 100) : 0;
-
-      const d5h = document.getElementById('dash5hVal');
-      if (d5h) d5h.textContent = avg5h + '%';
-      const d5hSub = document.getElementById('dash5hSub');
-      if (d5hSub) d5hSub.textContent = `${available5hCount} 个小号 5H 额度可用`;
-
-      const dWk = document.getElementById('dashWeeklyVal');
-      if (dWk) dWk.textContent = avgWk + '%';
-      const dWkSub = document.getElementById('dashWeeklySub');
-      if (dWkSub) dWkSub.textContent = `共纳管 ${rawAccounts.length} 个小号`;
-
-      const dAcc = document.getElementById('dashAccountVal');
-      if (dAcc) dAcc.textContent = `${readyAccountsCount} / ${rawAccounts.length}`;
-      const dAccSub = document.getElementById('dashAccountSub');
-      if (dAccSub) dAccSub.textContent = `当前挂载: ${activeEmail || '未指定'}`;
-
-      const rAcc = document.getElementById('radarAccountsText');
-      if (rAcc) rAcc.textContent = `${readyAccountsCount} / ${rawAccounts.length} 正常`;
-
-      // 划分 PRO 账号 与 标准账号
-      const proAccounts = rawAccounts.filter(a => a.tier === 'pro' || !!(a.web_auth?.is_pro));
-      const stdAccounts = rawAccounts.filter(a => !(a.tier === 'pro' || !!(a.web_auth?.is_pro)));
-
-      // 更新号池分级雷达
-      const rPro = document.getElementById('radarProAccountsText');
-      if (rPro) rPro.textContent = `${proAccounts.length} / ${rawAccounts.length} (优先通道)`;
-      const rStd = document.getElementById('radarStdAccountsText');
-      if (rStd) rStd.textContent = `${stdAccounts.length} / ${rawAccounts.length} (常规负载)`;
-
-      // 更新当前主凭据等级微徽章与特权说明
-      const activeAcc = rawAccounts.find(a => a.email === activeEmail);
-      const isActivePro = activeAcc ? (activeAcc.tier === 'pro' || !!activeAcc.web_auth?.is_pro) : false;
-      const tierBadgeEl = document.getElementById('activeAccountTierBadge');
-      if (tierBadgeEl) {
-        if (isActivePro) {
-          tierBadgeEl.className = 'badge pro';
-          tierBadgeEl.innerHTML = `<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> PRO 会员 2M`;
-        } else {
-          tierBadgeEl.className = 'badge std';
-          tierBadgeEl.textContent = '标准账号';
-        }
-      }
-      const privEl = document.getElementById('activeAccountPrivilegeText');
-      if (privEl) {
-        privEl.innerHTML = isActivePro
-          ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span style="color:#f59e0b; font-weight:500;">享 200万 (2M) 上下文 · 优先调度</span>`
-          : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg><span>自动续期: 剩余充足</span>`;
-      }
-
-      if (data.gateway) {
-        const gw = data.gateway;
-        const capEl = document.getElementById('gatewayApiCapacityVal');
-        if (capEl) capEl.textContent = `剩余 ${(gw.totalRemaining || 0).toLocaleString()} / ${(gw.totalCapacity || 0).toLocaleString()} 次/天`;
-
-        const p = Math.min(100, Math.max(0, parseFloat(gw.percentRemaining || 100)));
-        const apiBar = document.getElementById('gatewayApiProgressBar');
-        if (apiBar) {
-          apiBar.style.width = p + '%';
-          apiBar.style.background = p < 20 ? 'var(--accent-red)' : 'var(--accent-green)';
-        }
-
-        const apiBadge = document.getElementById('gatewayApiPercentBadge');
-        if (apiBadge) {
-          apiBadge.textContent = p + '% 充足';
-          apiBadge.className = 'badge ' + (p < 20 ? 'red' : 'green');
-        }
-
-        const radarApiText = document.getElementById('radarApiCapacityText');
-        if (radarApiText) radarApiText.textContent = `${(gw.totalRemaining || 0).toLocaleString()} 次/天`;
-
-        // 更新 Web 反代通道卡片文案
-        const webSub = document.getElementById('gatewayWebSubtext');
-        if (webSub) {
-          webSub.textContent = `含 ${proAccounts.length} 个 PRO 会员号 (200万上下文) · 自动续期守护`;
-        }
-
-        cachedGatewayModels = gw.models || [];
-        const modelBadge = document.getElementById('navBadgeModelsCount');
-        if (modelBadge && cachedGatewayModels.length > 0) {
-          modelBadge.textContent = cachedGatewayModels.length;
-        }
-
-        renderGatewayModelTable();
-      }
-
-      if (data.sessionStats) {
-        const dTokens = document.getElementById('dashTotalTokens');
-        if (dTokens) dTokens.textContent = data.sessionStats.estTokens || data.sessionStats.totalTokens || '--';
-        const dTokenSub = document.getElementById('dashTokenSub');
-        if (dTokenSub) dTokenSub.textContent = '活跃会话累计';
-      }
-
-      const standbyEl = document.getElementById('probeStatusBadge');
-      if (standbyEl && data.standby) {
-        if (data.standby.isStandby) {
-          standbyEl.className = 'badge';
-          standbyEl.style.background = 'rgba(255,255,255,0.06)';
-          standbyEl.style.color = 'var(--text-muted)';
-          standbyEl.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:3px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg> 节能待机中`;
-          standbyEl.title = `连续 15 分钟无业务请求，已自动挂起后台探测以节约电量与配额 (空闲 ${data.standby.idleSeconds} 秒)；发起调用时即时自动唤醒`;
-        } else {
-          standbyEl.className = 'badge green';
-          standbyEl.style.background = '';
-          standbyEl.style.color = '';
-          standbyEl.innerHTML = `<span class="dot-live green" style="width:5px; height:5px; margin-right:3px;"></span> 10m 巡检就绪`;
-          standbyEl.title = '巡检调度活跃中：每个账号每 10 分钟自动探测一次健康度与配额';
-        }
-      }
-
-      // 消费实时 IDE 联调感知流
-      if (Array.isArray(data.liveRequests) && data.liveRequests.length > 0) {
-        const latestReq = data.liveRequests[0];
-        const timeStr = latestReq.time || (latestReq.timestamp ? new Date(latestReq.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString());
-        const feedEl = document.getElementById('liveFeedText');
-        const feedTimeEl = document.getElementById('liveFeedTime');
-        if (feedEl) {
-          feedEl.innerHTML = `<span style="color:var(--text-high); font-weight:600;">${latestReq.client || 'Cursor IDE'}</span> 调用 <span style="color:var(--accent-blue-glow);">${latestReq.model}</span> · 延迟 <strong>${latestReq.latencyMs}ms</strong> · 状态 <strong>${latestReq.status}</strong> · 调度: <span style="color:var(--text-high); font-weight:500;">${latestReq.account}</span>`;
-        }
-        if (feedTimeEl) {
-          feedTimeEl.textContent = `${timeStr} · 持续就绪`;
-        }
-      }
-
-      // 渲染账号矩阵表格
-      renderAccountsTable(rawAccounts, activeEmail);
-
-      // 如果有历史会话与 turns，直接渲染
-      if (Array.isArray(data.dialogTurns)) {
-        allTurnsData = data.dialogTurns;
-        renderTurnLog();
-      }
-    } catch (e) {
-      console.warn('loadStatus error:', e);
+      showToast('已在 Chrome 打开 Gemini');
     }
   }
 
-  let currentAccountTierFilter = 'all'; // 'all' | 'pro' | 'standard'
-
-  function setAccountTierFilter(filter, btn) {
-    currentAccountTierFilter = filter;
-    document.querySelectorAll('#accountTierFilterGroup .btn').forEach(b => b.classList.remove('primary'));
-    if (btn) btn.classList.add('primary');
-    renderAccountsTable(cachedAccounts, currentActiveEmail);
+  function copyConsoleCmd() {
+    copyText('copy(document.cookie)');
+    const btn = document.getElementById('copyCmdBtn');
+    btn.textContent = '✓ 已复制命令';
+    setTimeout(() => { btn.textContent = '📋 复制提取命令'; }, 2000);
+    showToast('已复制！在 Chrome 控制台粘贴并回车即可');
   }
 
-  async function toggleAccountTier(email, targetTier) {
+  async function pasteFromClipboard() {
     try {
-      const res = await fetch(api('/api/account/set-tier'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, tier: targetTier })
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        document.getElementById('capManualCookie').value = text.trim();
+        showToast('已从剪贴板填入 Cookie');
+      } else {
+        showToast('剪贴板为空，请在输入框直接按 Cmd+V');
+      }
+    } catch(e) {
+      showToast('请直接在输入框按 Cmd+V 粘贴');
+      document.getElementById('capManualCookie').focus();
+    }
+  }
+
+  async function submitManualCookie() {
+    const cookie = document.getElementById('capManualCookie').value.trim();
+    if (!cookie) {
+      showToast('请先粘贴 Cookie 字符串');
+      return;
+    }
+    const btn = document.getElementById('capSaveManualBtn');
+    btn.disabled = true; btn.textContent = '保存中…';
+    try {
+      const res = await fetch(API('/api/account/bind-web-auth'), {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          email: captureTargetEmail,
+          cookie: cookie,
+          isPro: document.getElementById('capIsPro').checked
+        })
       });
       const d = await res.json();
       if (d.success) {
-        await loadData();
+        showToast('✅ Web 登录态已成功绑定！');
+        closeCaptureModal();
+        loadData();
+      } else {
+        showToast('❌ 保存失败: ' + (d.error || '未知错误'));
       }
-    } catch (e) {
-      alert('切换账号等级失败: ' + e.message);
-    }
-  }
-
-  async function triggerProbeAll() {
-    const btn = document.getElementById('btnProbeAll');
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = '检测中...';
-    }
-    try {
-      await fetch(api('/api/health/probe-all'), { method: 'POST' });
-      await loadData();
-    } catch (e) {
-      alert('健康巡检失败: ' + e.message);
+    } catch(e) {
+      showToast('❌ 请求失败: ' + e.message);
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = '⚡ 立即体检';
-      }
+      btn.disabled = false; btn.textContent = '保存绑定';
     }
   }
 
-  function renderAccountsTable(accounts, activeEmail) {
-    const badge = document.getElementById('navBadgeAccountsCount');
-    if (badge) badge.textContent = accounts.length;
+  async function setActive(email) {
+    await fetch(API('/api/switch'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+    showToast('已切换激活账号'); loadData();
+  }
+  async function probeAll() {
+    const btn = document.getElementById('probeBtn');
+    btn.disabled = true; btn.textContent = '刷新中…';
+    try { await fetch(API('/api/refresh-quotas'), { method:'POST' }); showToast('配额已刷新'); loadData(); }
+    catch(e) { showToast('刷新失败'); }
+    finally { btn.disabled = false; btn.textContent = '刷新配额'; }
+  }
 
-    const proAccounts = accounts.filter(a => a.tier === 'pro' || !!(a.web_auth?.is_pro));
-    const stdAccounts = accounts.filter(a => !(a.tier === 'pro' || !!(a.web_auth?.is_pro)));
+  // ─── 仪表盘半圆 gauge 更新 ─────────────────────────────────
+  function setGauge(id, frac, label, color) {
+    const arcLen = 157; // 半圆弧长
+    const offset = arcLen * (1 - Math.max(0, Math.min(1, frac)));
+    const el = document.getElementById(id);
+    if (el) {
+      el.setAttribute('stroke-dashoffset', offset.toFixed(1));
+      el.setAttribute('stroke', color);
+    }
+  }
 
-    const btnAll = document.getElementById('btnFilterTierAll');
-    if (btnAll) btnAll.textContent = `全部 (${accounts.length})`;
-    const btnPro = document.getElementById('btnFilterTierPro');
-    if (btnPro) btnPro.textContent = `★ PRO 会员 (${proAccounts.length})`;
-    const btnStd = document.getElementById('btnFilterTierStd');
-    if (btnStd) btnStd.textContent = `标准账号 (${stdAccounts.length})`;
+  // ─── 渲染仪表盘 ────────────────────────────────────────────
+  function renderDashboard(data) {
+    const accs = Object.values(data.pool?.accounts || {});
+    const gw = data.gateway || {};
 
-    const tbody = document.getElementById('poolTableBody');
-    if (!tbody) return;
+    // KPI
+    document.getElementById('kpiAccounts').textContent = accs.length;
+    document.getElementById('kpiProSub').textContent = `Pro ${gw.proAccountsCount||0} · Standard ${gw.standardAccountsCount||0}`;
+    document.getElementById('kpiCapacity').textContent = (gw.totalCapacity||0).toLocaleString();
+    document.getElementById('kpiUsedSub').textContent = `今日已用 ${gw.totalUsedToday||0} 次`;
+    document.getElementById('kpiWebPro').textContent = (gw.proAccountsCount||0);
 
-    let displayList = accounts;
-    if (currentAccountTierFilter === 'pro') displayList = proAccounts;
-    else if (currentAccountTierFilter === 'standard') displayList = stdAccounts;
+    const webBound = accs.filter(a => {
+      const c = a.web_auth?.cookie || '';
+      return c.length > 50 && (c.includes('SAPISID') || c.includes('__Secure-1PSID') || c.includes('SID='));
+    }).length;
+    document.getElementById('kpiWebBound').textContent = webBound;
 
-    if (displayList.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">该分类下暂无账号</td></tr>';
+    // 各配额均值（只算 OK 的账号）
+    const okAccs = accs.filter(a => a.quota?.status === 'OK');
+    function avg(arr, fn) {
+      const valid = arr.filter(a => fn(a) != null && fn(a) !== undefined);
+      if (!valid.length) return null;
+      return valid.reduce((s, a) => s + fn(a), 0) / valid.length;
+    }
+    const gWeekAvg   = avg(okAccs, a => a.quota?.gemini_weekly?.remainingFraction);
+    const g5hAvg     = avg(okAccs, a => a.quota?.gemini_5h?.remainingFraction);
+    const cWeekAvg   = avg(okAccs, a => a.quota?.claude_weekly?.remainingFraction);
+
+    const apiPct = gw.totalCapacity > 0 ? gw.totalRemaining / gw.totalCapacity : 1;
+
+    // API 日仪表
+    setGauge('gApiDay', apiPct, '', apiPct > .5 ? 'var(--blue)' : apiPct > .2 ? 'var(--amber)' : 'var(--red)');
+    document.getElementById('gApiDayPct').textContent = (apiPct*100).toFixed(0) + '%';
+    document.getElementById('gApiDayDetail').textContent = `${gw.totalRemaining||0} / ${gw.totalCapacity||0} 次`;
+
+    // Gemini 周仪表
+    if (gWeekAvg != null) {
+      const c = gWeekAvg > .5 ? 'var(--green)' : gWeekAvg > .2 ? 'var(--amber)' : 'var(--red)';
+      setGauge('gGemWeek', gWeekAvg, '', c);
+      document.getElementById('gGemWeekPct').textContent = (gWeekAvg*100).toFixed(0) + '%';
+      document.getElementById('gGemWeekPct').style.color = c;
+      document.getElementById('gGemWeekDetail').textContent = `${okAccs.length} 个账号平均`;
+    } else {
+      document.getElementById('gGemWeekPct').textContent = 'N/A';
+      document.getElementById('gGemWeekDetail').textContent = '无可用数据';
+    }
+
+    // Gemini 5h 仪表
+    if (g5hAvg != null) {
+      const c = g5hAvg > .5 ? 'var(--amber)' : g5hAvg > .2 ? 'var(--red)' : 'var(--red)';
+      setGauge('gGem5h', g5hAvg, '', c);
+      document.getElementById('gGem5hPct').textContent = (g5hAvg*100).toFixed(0) + '%';
+      document.getElementById('gGem5hPct').style.color = g5hAvg > .4 ? 'var(--amber)' : 'var(--red)';
+    } else {
+      document.getElementById('gGem5hPct').textContent = 'N/A';
+    }
+
+    // Claude 周仪表
+    if (cWeekAvg != null) {
+      const c = cWeekAvg > .5 ? 'var(--purple)' : cWeekAvg > .2 ? 'var(--amber)' : 'var(--red)';
+      setGauge('gClaudeWeek', cWeekAvg, '', c);
+      document.getElementById('gClaudeWeekPct').textContent = (cWeekAvg*100).toFixed(0) + '%';
+      document.getElementById('gClaudeWeekPct').style.color = c;
+      document.getElementById('gClaudeWeekDetail').textContent = `${okAccs.length} 个账号平均`;
+    } else {
+      document.getElementById('gClaudeWeekPct').textContent = 'N/A';
+      document.getElementById('gClaudeWeekDetail').textContent = '无可用数据';
+    }
+
+    // 迷你账号列表
+    const mini = document.getElementById('miniList');
+    mini.innerHTML = accs.map(acc => {
+      const gw = acc.quota?.gemini_weekly?.remainingFraction ?? null;
+      const g5 = acc.quota?.gemini_5h?.remainingFraction ?? null;
+      const cw = acc.quota?.claude_weekly?.remainingFraction ?? null;
+      const errored = acc.quota?.status === 'ERROR';
+      const initials = (acc.name || acc.email || '?').substring(0,2).toUpperCase();
+      const avatarHtml = acc.picture
+        ? `<div class="mini-avatar"><img src="${acc.picture}" onerror="this.parentElement.textContent='${initials}'"></div>`
+        : `<div class="mini-avatar">${initials}</div>`;
+
+      const mkBar = (frac, color) => {
+        if (frac == null) return `<div class="mini-bar-track"><div class="mini-bar-fill" style="width:0%;background:rgba(255,255,255,.1)"></div></div>`;
+        const pct = Math.round(frac*100);
+        return `<div class="mini-bar-track"><div class="mini-bar-fill" style="width:${pct}%;background:${color}"></div></div>`;
+      };
+      const barSection = errored
+        ? `<span style="font-size:10px;color:var(--amber)">需验证</span>`
+        : `<div class="mini-bars">
+            <div class="mini-bar-row"><span class="mini-bar-label">G周</span>${mkBar(gw,'var(--green)')}</div>
+            <div class="mini-bar-row"><span class="mini-bar-label">G5h</span>${mkBar(g5,'var(--amber)')}</div>
+            <div class="mini-bar-row"><span class="mini-bar-label">C周</span>${mkBar(cw,'var(--purple)')}</div>
+          </div>`;
+
+      return `<div class="mini-row">${avatarHtml}<div class="mini-email">${acc.email}</div>${barSection}</div>`;
+    }).join('');
+  }
+
+  // ─── 渲染账号表格 ──────────────────────────────────────────
+  function renderAccounts(accs, active) {
+    const tbody = document.getElementById('accountTable');
+    if (!accs.length) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><p>还没有账号</p><span>点击右上角"添加账号"开始</span></div></td></tr>`;
       return;
     }
+    tbody.innerHTML = accs.map(acc => {
+      const isAct = acc.email === active;
+      const isPro = acc.tier === 'pro';
+      const hasKey = !!(acc.ai_studio?.api_key);
+      const cookie = acc.web_auth?.cookie || '';
+      const webOk = cookie.length > 50 && (cookie.includes('SAPISID') || cookie.includes('__Secure-1PSID') || cookie.includes('SID='));
+      const errored = acc.quota?.status === 'ERROR';
 
-    tbody.innerHTML = displayList.map(a => {
-      const isCur = a.email === activeEmail;
-      const isPro = a.tier === 'pro' || !!(a.web_auth?.is_pro);
-      const q = a.quota;
+      const gw = acc.quota?.gemini_weekly?.remainingFraction;
+      const g5 = acc.quota?.gemini_5h?.remainingFraction;
+      const cw = acc.quota?.claude_weekly?.remainingFraction;
+      const c5 = acc.quota?.claude_5h?.remainingFraction;
 
-      // 1. 账号身份
-      const avatar = a.picture
-        ? `<img src="${a.picture}" style="width:24px; height:24px; border-radius:50%; border:1px solid var(--border-hairline); object-fit:cover; flex-shrink:0;">`
-        : `<div style="width:24px; height:24px; border-radius:50%; background:var(--surface-elevated); border:1px solid var(--border-hairline); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:var(--text-mid); flex-shrink:0;">${(a.email || 'U')[0].toUpperCase()}</div>`;
+      const mkQ = (frac, color, label) => {
+        if (frac == null) return `<div class="qrow"><span class="ql">${label}</span><span style="font-size:10px;color:var(--muted)">—</span></div>`;
+        const pct = Math.round(frac*100);
+        return `<div class="qrow"><span class="ql">${label}</span><div class="qtrack"><div class="qfill" style="width:${pct}%;background:${color}"></div></div><span class="qpct">${pct}%</span></div>`;
+      };
 
-      const identityHtml = `
-        <div style="display:flex; align-items:center; gap:8px;">
-          ${avatar}
-          <div style="min-width:0; overflow:hidden; flex:1;">
-            <div style="font-weight:600; font-size:12px; color:var(--text-high); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${a.name || a.email}</div>
-            <div style="font-size:10px; color:var(--text-muted); font-family:var(--font-mono); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display:flex; align-items:center; gap:4px;">
-              <span>${a.email}</span>
-              <button class="btn mini" style="padding:0 3px; height:14px; font-size:9px;" onclick="copyText('${a.email}', this)" title="复制邮箱">复制</button>
-            </div>
-          </div>
-        </div>
-      `;
+      const gQuota = errored
+        ? `<span style="font-size:11px;color:var(--amber)">需验证</span>`
+        : `<div class="qcell">${mkQ(gw,'var(--green)','周')}${mkQ(g5,'var(--amber)','5h')}</div>`;
+      const cQuota = errored
+        ? `<span style="font-size:11px;color:var(--muted)">—</span>`
+        : `<div class="qcell">${mkQ(cw,'var(--purple)','周')}${mkQ(c5,'var(--blue)','5h')}</div>`;
 
-      // 2. 账号特权 (诚实非欺骗性标注切换)
-      let tierHtml = isPro
-        ? `<div style="display:flex; flex-direction:column; gap:3px;">
-             <span class="badge pro" style="align-self:flex-start;" title="优先调度 200万上下文通道">
-               <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-               PRO 2M 会员
-             </span>
-             <span style="font-size:10px; color:var(--text-muted);">
-               调度权重: 优先 · <a href="javascript:void(0)" onclick="toggleAccountTier('${a.email}', 'standard')" style="color:var(--text-mid); text-decoration:underline;">设为标准</a>
-             </span>
-           </div>`
-        : `<div style="display:flex; flex-direction:column; gap:3px;">
-             <span class="badge std" style="align-self:flex-start;" title="常规 1500 API 算力通道">标准账号</span>
-             <span style="font-size:10px; color:var(--text-muted);">
-               调度权重: 常规 · <a href="javascript:void(0)" onclick="toggleAccountTier('${a.email}', 'pro')" style="color:#f59e0b; text-decoration:underline;">标注为 PRO</a>
-             </span>
-           </div>`;
+      const initials = (acc.name || acc.email).substring(0,2).toUpperCase();
+      const avatarHtml = acc.picture
+        ? `<div class="avatar"><img src="${acc.picture}" onerror="this.parentElement.textContent='${initials}'"></div>`
+        : `<div class="avatar">${initials}</div>`;
 
-      // 3. 健康诊断
-      const hasKey = !!a.ai_studio?.api_key;
-      const keyActive = hasKey && a.ai_studio?.status === 'active';
-      const webHasCookie = !!a.web_auth?.cookie;
-      const webActive = webHasCookie && a.web_auth?.status === 'active';
-
-      let healthHtml = '';
-      let needsFix = false;
-      let fixType = 'all'; // 'key' | 'web' | 'all'
-
-      if (isCur) {
-        healthHtml = `<span class="badge blue">● 主凭据挂载中</span>`;
-      } else if (webActive && keyActive) {
-        healthHtml = `<span class="badge green"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="margin-right:2px;"><polyline points="20 6 9 17 4 12"></polyline></svg>全通道就绪</span>`;
-      } else if (webActive && !hasKey) {
-        healthHtml = `<span class="badge amber">🟡 仅 Web 反代就绪</span>`;
-        needsFix = true;
-        fixType = 'key';
-      } else if (q?.status === 'ERROR' && q?.validationUrl) {
-        healthHtml = `<a href="${q.validationUrl}" target="_blank" class="badge amber" style="text-decoration:none;">需网页验证 ↗</a>`;
-        needsFix = true;
-        fixType = 'web';
-      } else if (!webActive) {
-        healthHtml = `<span class="badge red">● 凭据失效/未同步</span>`;
-        needsFix = true;
-        fixType = 'web';
-      } else {
-        healthHtml = `<span class="badge green">● 健康就绪</span>`;
-      }
-
-      // 4. 今日额度 (进度条与配额说明)
-      const limit = a.ai_studio?.daily_limit || 1500;
-      const used = a.ai_studio?.used_today || 0;
-      const remaining = Math.max(0, limit - used);
-      const quota5h = q?.gemini_5h;
-      const pct5h = quota5h?.remainingFraction !== undefined ? Math.round(quota5h.remainingFraction * 100) : null;
-      const pctApi = Math.round((remaining / limit) * 100);
-
-      let quotaHtml = `
-        <div style="display:flex; flex-direction:column; gap:3px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-family:var(--font-mono); font-size:11px; font-weight:600; color:${remaining < 100 ? 'var(--accent-red)' : 'var(--text-high)'};">
-              ${hasKey ? `剩余 ${remaining.toLocaleString()} 次/天` : 'Web 不限频次'}
-            </span>
-            <span style="font-size:10px; font-family:var(--font-mono); color:var(--text-muted);">
-              ${typeof pct5h === 'number' ? `5H: ${pct5h}%` : '5H: 就绪'}
-            </span>
-          </div>
-          <div class="cap-track" style="height:3px; margin-top:2px;">
-            <div class="cap-fill" style="width:${hasKey ? pctApi : 100}%; background:${remaining < 100 ? 'var(--accent-red)' : 'var(--accent-green)'};"></div>
-          </div>
-        </div>
-      `;
-
-      // 5. 操作
-      let opHtml = '';
-      if (needsFix) {
-        if (fixType === 'key') {
-          opHtml = `
-            <button class="btn mini primary" onclick="openBindAiKeyModal('${a.email}')" title="绑定免费 AI Studio Key 点亮生图与官方 API 通道">+ 补全 Key</button>
-            <button class="btn mini danger-subtle" onclick="deleteAccount('${a.email}')">移除</button>
-          `;
-        } else {
-          opHtml = `
-            <button class="btn mini amber" onclick="triggerAutoAuth('${a.email}')" title="一键同步 Web 反代凭据">一键修复</button>
-            <button class="btn mini danger-subtle" onclick="deleteAccount('${a.email}')">移除</button>
-          `;
-        }
-      } else {
-        opHtml = `
-          <span class="badge green" style="cursor:default; font-size:10px; padding:2px 6px; user-select:none;">✓ 已就绪</span>
-          ${!isCur ? `<button class="btn mini" onclick="switchAccount('${a.email}')">挂载</button>` : ''}
-          <button class="btn mini danger-subtle" onclick="deleteAccount('${a.email}')">移除</button>
-        `;
-      }
-
-      return `
-        <tr class="${isPro ? 'row-pro' : 'row-std'}">
-          <td>${identityHtml}</td>
-          <td>${tierHtml}</td>
-          <td>${healthHtml}</td>
-          <td>${quotaHtml}</td>
-          <td style="text-align: right;"><div style="display:inline-flex; gap:4px; justify-content:flex-end; align-items:center;">${opHtml}</div></td>
-        </tr>
-      `;
+      return `<tr class="${isAct ? 'row-active' : ''}">
+        <td><div class="acell">${avatarHtml}<div class="acell-info">
+          <div class="acell-email">${acc.email}${isAct ? ' <span class="badge badge-cur">激活</span>' : ''}</div>
+          ${acc.name && acc.name !== acc.email ? `<div class="acell-name">${acc.name}</div>` : ''}
+        </div></div></td>
+        <td><span class="badge ${isPro ? 'badge-pro' : 'badge-std'}">${isPro ? 'Pro' : 'Std'}</span></td>
+        <td><div class="scell"><span class="dot ${hasKey ? 'dot-g' : 'dot-x'}"></span>${hasKey ? '已绑定' : '未绑定'}</div></td>
+        <td><div class="scell"><span class="dot ${webOk ? 'dot-g' : 'dot-x'}"></span>${webOk ? '已登录' : '未绑定'}</div></td>
+        <td>${gQuota}</td>
+        <td>${cQuota}</td>
+        <td><div class="acts">
+          ${!isAct ? `<button class="abtn" onclick="setActive('${acc.email}')">设激活</button>` : ''}
+          <button class="abtn ${webOk ? 'ok' : 'prim'}" onclick="triggerWebLogin('${acc.email}')">
+            ${webOk ? '✓ 重新绑 Web' : '登录 Web'}
+          </button>
+        </div></td>
+      </tr>`;
     }).join('');
   }
 
-  async function loadAccounts() {
-    try {
-      const res = await fetch(api('/api/accounts'));
-      const list = await res.json();
-      if (Array.isArray(list)) {
-        cachedAccounts = list;
-        renderAccountsTable(cachedAccounts, currentActiveEmail);
+  // ─── 渲染端点面板 ──────────────────────────────────────────
+  function renderEndpoints() {
+    const base = 'http://localhost:3999';
+    const protoName = { openai: 'OpenAI', claude: 'Claude', gemini: 'Gemini Native' }[currentProto];
+
+    const groups = {
+      openai: {
+        label: 'OpenAI 兼容格式', icon: '⚡', color: 'blue',
+        channels: [
+          { name: '通用兼容（自动路由）', url: `${base}/v1`, methods: ['GET /v1/models', 'POST /v1/chat/completions', 'POST /v1/images/generations'] },
+          { name: '官方 API 专线', url: `${base}/api-v1`, methods: ['GET /api-v1/models', 'POST /api-v1/chat/completions', 'POST /api-v1/images/generations'] },
+          { name: 'Web 逆向反代', url: `${base}/web-v1`, methods: ['POST /web-v1/chat/completions', 'POST /web-v1/images/generations'] },
+        ],
+        usage: `Base URL: ${base}/v1\nAuthorization: Bearer any`
+      },
+      claude: {
+        label: 'Claude SDK 兼容格式', icon: '🔮', color: 'purple',
+        channels: [
+          { name: 'Claude Messages API（转 Gemini）', url: `${base}/claude/v1`, methods: ['GET /claude/v1/models', 'POST /claude/v1/messages'] },
+        ],
+        usage: `Base URL: ${base}/claude/v1\nAnthropic SDK: anthropic.base_url = "${base}/claude"\nx-api-key: any`
+      },
+      gemini: {
+        label: 'Gemini 原生格式', icon: '✨', color: 'green',
+        channels: [
+          { name: 'Gemini generateContent（直透官方）', url: `${base}/gemini/v1beta`, methods: ['GET /gemini/v1beta/models', 'POST /gemini/v1beta/models/{model}:generateContent', 'POST /gemini/v1beta/models/{model}:streamGenerateContent'] },
+        ],
+        usage: `Base URL: ${base}/gemini\nGoogle SDK: genai.Client(api_key="any", http_options={"base_url":"${base}/gemini/v1beta"})`
       }
-    } catch (e) {
-      console.warn('loadAccounts error:', e);
-    }
-  }
+    };
 
-  async function switchAccount(email) {
-    try {
-      const res = await fetch(api('/api/account/switch'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const d = await res.json();
-      if (d.success) await loadData();
-    } catch (e) { alert('切换失败: ' + e.message); }
-  }
-
-  async function deleteAccount(email) {
-    if (!confirm(`确定移除账号 ${email} 吗？`)) return;
-    try {
-      const res = await fetch(api('/api/account/delete'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const d = await res.json();
-      if (d.success) await loadData();
-    } catch (e) { alert('移除失败: ' + e.message); }
-  }
-
-  async function toggleAutoSwitch(el) {
-    try {
-      await fetch(api('/api/account/auto-switch'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: el.checked })
-      });
-    } catch (e) { console.warn(e); }
-  }
-
-  async function refreshAllQuotas() {
-    try {
-      await fetch(api('/api/refresh-quotas'), { method: 'POST' });
-      await loadData();
-    } catch (e) { console.warn(e); }
-  }
-
-  // 动态模型矩阵渲染
-  function setModelCategoryFilter(cat, btn) {
-    currentModelCategory = cat;
-    document.querySelectorAll('#modelCategoryTabs .btn').forEach(b => b.classList.remove('primary'));
-    if (btn) btn.classList.add('primary');
-    renderGatewayModelTable();
-  }
-
-  function selectModelForQuickTest(modelId) {
-    const sel = document.getElementById('quickTestModel');
-    if (sel) {
-      let found = false;
-      for (let i = 0; i < sel.options.length; i++) {
-        if (sel.options[i].value === modelId) {
-          sel.selectedIndex = i;
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        sel.add(new Option(modelId, modelId, true, true));
-      }
-      switchSidebarView('hub');
-      sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      sel.style.borderColor = 'var(--accent-blue-glow)';
-      setTimeout(() => { sel.style.borderColor = 'var(--border-card)'; }, 1500);
-    }
-  }
-
-  function renderGatewayModelTable() {
-    const tbody = document.getElementById('gatewayModelTableBody');
-    if (!tbody) return;
-
-    const search = (document.getElementById('modelFilterInput')?.value || '').toLowerCase().trim();
-
-    const fallbackList = [
-      { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash (最新旗舰)", source: "Gemini Web (官网动态)", description: "Google 官网最新旗舰，极速响应与全能任务", thinkSupport: "@think=0~4 全档位" },
-      { id: "gemini-3.8-live-extended-thinking", name: "Gemini 3.8 Live Extended Thinking", source: "Gemini Web (官网动态)", description: "官方原生超长思维链模型，长篇论证与工程规划", thinkSupport: "原生思维链" },
-      { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash (官网全能)", source: "Gemini Web (官网动态)", description: "官网高频全能多模态旗舰，极佳平衡", thinkSupport: "@think=0~4 支持" },
-      { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro (Pro会员专属)", source: "Gemini Web (Pro会员)", description: "满血 Pro 会员模型，综合逻辑与推理巅峰", thinkSupport: "深度思考" },
-      { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (官方极速)", source: "AI Studio (1500次/天)", description: "Google 官方 API 极速模型，低延迟直出", thinkSupport: "支持" },
-      { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (官方满血)", source: "AI Studio (1500次/天)", description: "官方 200 万超大上下文窗口，长文档分析", thinkSupport: "支持" }
-    ];
-
-    let list = (cachedGatewayModels && cachedGatewayModels.length > 0) ? cachedGatewayModels : fallbackList;
-    const flagshipIds = ['gemini-3.8-flash', 'gemini-3.8-live-extended-thinking', 'gemini-3.7-flash', 'gemini-3.1-pro', 'gemini-2.0-flash', 'gemini-1.5-pro'];
-
-    let filtered = list.filter(m => {
-      const id = m.id.toLowerCase();
-      const src = (m.source || '').toLowerCase();
-      if (currentModelCategory === 'flagship') return flagshipIds.includes(m.id) || id.includes('3.8') || id.includes('3.7');
-      if (currentModelCategory === 'thinking') return id.includes('thinking') || id.includes('extended');
-      if (currentModelCategory === 'pro') return id.includes('pro') || src.includes('pro');
-      return true;
-    });
-
-    if (search) {
-      filtered = filtered.filter(m => m.id.toLowerCase().includes(search) || (m.description || '').toLowerCase().includes(search));
-    }
-
-    filtered.sort((a, b) => {
-      const idxA = flagshipIds.indexOf(a.id);
-      const idxB = flagshipIds.indexOf(b.id);
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      if (idxA !== -1) return -1;
-      if (idxB !== -1) return 1;
-      return a.id.localeCompare(b.id);
-    });
-
-    tbody.innerHTML = filtered.map(m => {
-      const isFlagship = flagshipIds.includes(m.id);
-      const isApi = (m.source || '').includes('Studio') || (m.source || '').includes('API');
-      const isPro = (m.source || '').includes('Pro') || m.id.includes('pro');
-
-      let channelBadge = isApi 
-        ? `<span class="badge blue">官方 API (1500次)</span>`
-        : (isPro ? `<span class="badge amber">Web 逆向 (Pro)</span>` : `<span class="badge green">Web 逆向通道</span>`);
-
-      let thinkBadge = m.id.includes('thinking') || m.id.includes('extended')
-        ? `<span style="font-family:var(--font-mono); font-size:11px; color:#f59e0b; font-weight:600;">原生思维链</span>`
-        : (m.id.includes('3.8') || m.id.includes('3.7') ? `<span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-blue-glow);">@think=0~4</span>` : `<span style="color:var(--text-muted); font-size:11px;">默认平衡</span>`);
-
-      return `
-        <tr>
-          <td>
-            <div style="display:flex; align-items:center; gap:6px;">
-              <code style="font-family:var(--font-mono); font-size:12px; font-weight:600; color:${isFlagship ? 'var(--accent-blue-glow)' : 'var(--text-high)'};">${m.id}</code>
-              ${isFlagship ? '<span class="badge blue" style="font-size:9px;">旗舰</span>' : ''}
+    const g = groups[currentProto];
+    const epWrap = document.getElementById('epWrap');
+    epWrap.innerHTML = `
+      <div class="ep-group-title">${g.label}</div>
+      <div class="ep-cards">
+        ${g.channels.map(ch => `
+          <div class="ep-card">
+            <div class="ep-icon ${g.color}">${g.icon}</div>
+            <div class="ep-body">
+              <div class="ep-name">${ch.name}</div>
+              <div class="ep-url">${ch.url}</div>
+              <div class="ep-methods">${ch.methods.map(m => `<span class="ep-m">${m}</span>`).join('')}</div>
             </div>
-          </td>
-          <td>${channelBadge}</td>
-          <td>${thinkBadge}</td>
-          <td style="color:var(--text-mid); font-size:11px;">${m.description || m.name || 'Google Official Model'}</td>
-          <td><span class="badge green">● 就绪</span></td>
-          <td style="text-align: right;">
-            <div style="display:inline-flex; gap:4px; justify-content:flex-end;">
-              <button class="btn mini" onclick="selectModelForQuickTest('${m.id}')">单测</button>
-              <button class="btn mini" onclick="copyText('${m.id}', this)">复制</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
-  }
-
-  // 多模态生产力 Playground
-  function setPlaygroundTab(tab) {
-    const btnChat = document.getElementById('tabBtnChat');
-    const btnImage = document.getElementById('tabBtnImage');
-    const panelChat = document.getElementById('panelChat');
-    const panelImage = document.getElementById('panelImage');
-    const ctrlChat = document.getElementById('playgroundChatControls');
-    const ctrlImage = document.getElementById('playgroundImageControls');
-
-    if (tab === 'chat') {
-      if (btnChat) btnChat.classList.add('active');
-      if (btnImage) btnImage.classList.remove('active');
-      if (panelChat) panelChat.classList.add('active');
-      if (panelImage) panelImage.classList.remove('active');
-      if (ctrlChat) ctrlChat.style.display = 'flex';
-      if (ctrlImage) ctrlImage.style.display = 'none';
-    } else {
-      if (btnImage) btnImage.classList.add('active');
-      if (btnChat) btnChat.classList.remove('active');
-      if (panelImage) panelImage.classList.add('active');
-      if (panelChat) panelChat.classList.remove('active');
-      if (ctrlChat) ctrlChat.style.display = 'none';
-      if (ctrlImage) ctrlImage.style.display = 'flex';
-    }
-  }
-
-  function fillPrompt(text) {
-    const el = document.getElementById('quickTestPromptInput');
-    if (el) el.value = text;
-  }
-
-  function fillImagePrompt(text) {
-    const el = document.getElementById('imagePromptInput');
-    if (el) el.value = text;
-  }
-
-  function switchToPlayground(tab, model) {
-    switchSidebarView('hub');
-    if (tab === 'text') {
-      setPlaygroundTab('chat');
-      if (model) {
-        const sel = document.getElementById('quickTestModel');
-        if (sel) sel.value = model;
-      }
-      document.getElementById('quickTestPromptInput')?.focus();
-    } else if (tab === 'image') {
-      setPlaygroundTab('image');
-      document.getElementById('imagePromptInput')?.focus();
-    }
-  }
-
-  // 极速单测 (文本与思维链)
-  async function runGatewayQuickTest() {
-    const modelSelect = document.getElementById('quickTestModel');
-    const thinkSelect = document.getElementById('quickTestThinkLevel');
-    const promptInput = document.getElementById('quickTestPromptInput');
-    const btn = document.getElementById('btnRunQuickTest');
-    const outBox = document.getElementById('quickTestOutput');
-
-    const baseModel = modelSelect ? modelSelect.value : 'gemini-3.8-flash';
-    const thinkSuffix = thinkSelect ? (thinkSelect.value || '') : '';
-    const targetModel = baseModel + thinkSuffix;
-    const promptText = (promptInput ? promptInput.value : '').trim() || '请用 1 句话回复：网关与反代连接状态是否正常？';
-
-    btn.disabled = true;
-    btn.innerHTML = '<span>请求中...</span>';
-    outBox.style.display = 'block';
-    outBox.textContent = `[${new Date().toLocaleTimeString()}] 正在直连网关发送请求: model=${targetModel} ...\n`;
-
-    const start = Date.now();
-    try {
-      const res = await fetch(api('/v1/chat/completions'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer sk-antigravity'
-        },
-        body: JSON.stringify({
-          model: targetModel,
-          messages: [
-            { role: "user", content: promptText }
-          ]
-        })
-      });
-
-      const elapsed = Date.now() - start;
-      const data = await res.json();
-
-      if (res.ok && data.choices && data.choices[0]) {
-        outBox.textContent = `✅ [${new Date().toLocaleTimeString()}] 验证成功！延迟: ${elapsed}ms\n` +
-                             `调度模型: ${data.model || targetModel}\n` +
-                             `返回内容: ${data.choices[0].message?.content || JSON.stringify(data.choices[0])}\n` +
-                             `消耗统计: 输入 ${data.usage?.prompt_tokens || 0} · 输出 ${data.usage?.completion_tokens || 0} tokens`;
-      } else {
-        outBox.textContent = `❌ [${new Date().toLocaleTimeString()}] 响应异常 (HTTP ${res.status}):\n` + JSON.stringify(data, null, 2);
-      }
-    } catch (e) {
-      outBox.textContent = `❌ [${new Date().toLocaleTimeString()}] 网关直连失败: ${e.message}`;
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<span>执行单测</span>';
-    }
-  }
-
-  // 真实图片生成测试 (Imagen 3)
-  let lastGeneratedImageData = null;
-
-  async function runImageGenerationTest() {
-    const prompt = (document.getElementById('imagePromptInput')?.value || '').trim();
-    if (!prompt) return;
-
-    const btn = document.getElementById('btnRunImageTest');
-    const placeholder = document.getElementById('imagePlaceholderState');
-    const guidance = document.getElementById('imageKeyGuidanceState');
-    const resultState = document.getElementById('imageResultState');
-    const resultImg = document.getElementById('imageResultImg');
-    const metaEl = document.getElementById('imageResultMeta');
-
-    btn.disabled = true;
-    btn.innerHTML = '<span>生成中 (约2~4s)...</span>';
-    placeholder.style.display = 'block';
-    placeholder.innerHTML = `
-      <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
-        <span class="dot-live green" style="width:8px; height:8px;"></span>
-        <div style="font-size:12px; color:var(--text-high); font-weight:600;">正在直连 Imagen 3 专线生成高清图片...</div>
-        <div style="font-size:10px; color:var(--text-muted); font-family:var(--font-mono);">端点: /v1/images/generations · 规格: 1024x1024</div>
+            <button class="ep-copy" onclick="copyUrl('${ch.url}', this)">复制</button>
+          </div>
+        `).join('')}
+      </div>
+      <div class="ep-group-title" style="margin-top:4px;">接入示例</div>
+      <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <pre style="font-family:var(--mono);font-size:11px;color:var(--sub);line-height:1.7;white-space:pre-wrap;">${g.usage}</pre>
       </div>
     `;
-    guidance.style.display = 'none';
-    resultState.style.display = 'none';
+  }
 
-    const t0 = Date.now();
+  // ─── 数据加载 ──────────────────────────────────────────────
+  async function loadData() {
     try {
-      const res = await fetch(api('/v1/images/generations'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer sk-antigravity'
-        },
-        body: JSON.stringify({
-          prompt,
-          model: 'imagen-3.0-generate-002',
-          n: 1,
-          size: '1024x1024'
-        })
-      });
-
-      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      const res = await fetch(API('/api/status'));
       const data = await res.json();
-
-      if (!res.ok) {
-        placeholder.style.display = 'none';
-        guidance.style.display = 'block';
-        const reasonEl = document.getElementById('imageKeyGuidanceReason');
-        if (reasonEl && data.error?.message) {
-          reasonEl.textContent = data.error.message;
-        }
-        return;
-      }
-
-      if (data.data && data.data[0]) {
-        const item = data.data[0];
-        const imgSrc = item.url ? item.url : (item.b64_json ? `data:image/png;base64,${item.b64_json}` : '');
-        lastGeneratedImageData = imgSrc;
-
-        placeholder.style.display = 'none';
-        guidance.style.display = 'none';
-        resultState.style.display = 'flex';
-        resultImg.src = imgSrc;
-        if (metaEl) {
-          metaEl.textContent = `Imagen 3 · 1024×1024 · 耗时 ${elapsed}s · 200 OK`;
-        }
-      } else {
-        placeholder.style.display = 'none';
-        guidance.style.display = 'block';
-      }
-    } catch (e) {
-      placeholder.style.display = 'none';
-      guidance.style.display = 'block';
-      const reasonEl = document.getElementById('imageKeyGuidanceReason');
-      if (reasonEl) reasonEl.textContent = '网络连接异常: ' + e.message;
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<span>🎨 生成图像</span>';
+      const accs = Object.values(data.pool?.accounts || {});
+      renderDashboard(data);
+      renderAccounts(accs, data.pool?.active);
+    } catch(e) {
+      document.getElementById('accountTable').innerHTML =
+        `<tr><td colspan="7"><div class="empty"><p>服务未连接</p><span>${e.message}</span></div></td></tr>`;
     }
   }
 
-  function copyImageOutput() {
-    if (!lastGeneratedImageData) return;
-    navigator.clipboard.writeText(lastGeneratedImageData).then(() => {
-      alert('已成功复制图片数据到剪贴板');
-    });
+  // 窗口切回时自动检测剪贴板中的 Cookie
+  window.addEventListener('focus', async () => {
+    const modal = document.getElementById('modalCapture');
+    if (modal && modal.classList.contains('open')) {
+      const input = document.getElementById('capManualCookie');
+      if (input && !input.value.trim()) {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text && (text.includes('SAPISID=') || text.includes('__Secure-1PSID=') || text.includes('SID='))) {
+            input.value = text.trim();
+            showToast('✨ 已自动从剪贴板读取 Cookie，点击「保存并激活」即可！');
+          }
+        } catch(e) {}
+      }
+    }
+  });
+
+  // ─── 实时请求审计 (Audit & Observability) ──────────────────────
+  let currentAuditLogs = [];
+  let auditTimer = null;
+
+  async function loadAuditLogs() {
+    try {
+      const res = await fetch(API('/api/audit-logs?limit=50'));
+      const data = await res.json();
+      if (data.success) {
+        currentAuditLogs = data.logs || [];
+        renderAuditTable(currentAuditLogs);
+        const countEl = document.getElementById('auditCountBadge');
+        if (countEl) countEl.textContent = `${data.total || 0} 条记录`;
+      }
+    } catch (e) {}
   }
 
-  function openImageInNewTab() {
-    if (!lastGeneratedImageData) return;
-    const w = window.open('');
-    w.document.write(`<body style="margin:0; background:#111; display:flex; align-items:center; justify-content:center; height:100vh;"><img src="${lastGeneratedImageData}" style="max-width:90vw; max-height:90vh; border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,0.6);" /></body>`);
-  }
-
-  function openBindKeyForAnyAccount() {
-    if (cachedAccounts && cachedAccounts.length > 0) {
-      openBindAiKeyModal(cachedAccounts[0].email);
+  function toggleAuditAutoRefresh() {
+    const isAuto = document.getElementById('auditAutoRefresh')?.checked;
+    if (isAuto) {
+      if (!auditTimer) auditTimer = setInterval(loadAuditLogs, 3000);
     } else {
-      alert('号池中暂无账号，请先接入一个 Google 账号');
+      clearInterval(auditTimer);
+      auditTimer = null;
     }
   }
 
-  // 全通道路由测速
-  async function runChannelProbes() {
-    const btn = document.getElementById('btnProbeChannels');
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = '⚡ 探测中...';
-    }
-
+  async function clearAuditLogs() {
+    if (!confirm('确定清空所有请求审计日志吗？')) return;
     try {
-      const res = await fetch(api('/api/health/probe-channels'), { method: 'POST' });
-      const data = await res.json();
-
-      // 1. Text
-      if (data.text) {
-        const dot = document.getElementById('channelDotText');
-        const badge = document.getElementById('channelBadgeText');
-        const lat = document.getElementById('channelLatencyText');
-        if (dot) dot.className = 'status-dot ' + (data.text.ok ? 'green' : 'red');
-        if (badge) {
-          badge.className = 'badge ' + (data.text.ok ? 'green' : 'red');
-          badge.textContent = data.text.ok ? '满血就绪' : '异常';
-        }
-        if (lat) lat.textContent = `${data.text.latencyMs}ms · ${data.text.ok ? '极速响应' : '异常'}`;
-      }
-      // 2. Think
-      if (data.thinking) {
-        const dot = document.getElementById('channelDotThink');
-        const badge = document.getElementById('channelBadgeThink');
-        const lat = document.getElementById('channelLatencyThink');
-        if (dot) dot.className = 'status-dot ' + (data.thinking.ok ? 'green' : 'red');
-        if (badge) {
-          badge.className = 'badge ' + (data.thinking.ok ? 'amber' : 'red');
-          badge.textContent = data.thinking.ok ? '思维链就绪' : '异常';
-        }
-        if (lat) lat.textContent = `${data.thinking.latencyMs}ms · 原生推导`;
-      }
-      // 3. Pro
-      if (data.pro) {
-        const dot = document.getElementById('channelDotPro');
-        const badge = document.getElementById('channelBadgePro');
-        const lat = document.getElementById('channelLatencyPro');
-        if (dot) dot.className = 'status-dot ' + (data.pro.ok ? 'green' : 'red');
-        if (badge) badge.textContent = data.pro.ok ? 'Pro 专线就绪' : '专线超时';
-        if (lat) lat.textContent = `${data.pro.latencyMs}ms · 2M 会员`;
-      }
-      // 4. Image
-      if (data.image) {
-        const dot = document.getElementById('channelDotImg');
-        const badge = document.getElementById('channelBadgeImg');
-        const lat = document.getElementById('channelLatencyImg');
-        const isOk = data.image.ok;
-        if (dot) dot.className = 'status-dot ' + (isOk ? 'green' : (data.image.status === 'needs_key' ? 'amber' : 'red'));
-        if (badge) {
-          badge.className = 'badge ' + (isOk ? 'green' : 'amber');
-          badge.textContent = isOk ? '生图就绪' : '需绑定 Key';
-        }
-        if (lat) lat.textContent = isOk ? `${data.image.latencyMs}ms · 官方 Imagen 3` : '未绑定 Key';
-      }
-    } catch (e) {
-      console.warn('Probe channels error:', e);
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = '⚡ 一键全通道测速';
-      }
-    }
+      await fetch(API('/api/audit-logs/clear'), { method: 'POST' });
+      showToast('审计日志已清空');
+      loadAuditLogs();
+    } catch (e) {}
   }
 
-  // 消耗审计
-  async function loadTurnLog() {
-    try {
-      const res = await fetch(api('/api/history'));
-      const list = await res.json();
-      if (Array.isArray(list)) {
-        allTurnsData = list;
-        renderTurnLog();
-      }
-    } catch (e) { console.warn('loadTurnLog error:', e); }
-  }
-
-  function setTimelineFilter(filter, btn) {
-    currentFilter = filter;
-    document.querySelectorAll('#filterBtnGroup .btn').forEach(b => b.classList.remove('primary'));
-    if (btn) btn.classList.add('primary');
-    renderTurnLog();
-  }
-
-  function renderTurnLog() {
-    const tbody = document.getElementById('turnTableBody');
+  function renderAuditTable(logs) {
+    const tbody = document.getElementById('auditTableBody');
     if (!tbody) return;
-
-    const query = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-    let filtered = allTurnsData.filter(t => {
-      if (query && !(t.prompt || '').toLowerCase().includes(query)) return false;
-      const total = t.estTokens || t.totalTokens || ((t.inputTokens || 0) + (t.outputTokens || 0));
-      if (currentFilter === 'heavy' && total < 100000) return false;
-      return true;
-    });
-
-    if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">暂无日志</td></tr>';
+    if (!logs || logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">暂无请求日志，在 ZCode 或其它客户端提问后将在此实时流水展现</td></tr>';
       return;
     }
+    tbody.innerHTML = logs.map((log, idx) => {
+      const isSuccess = log.status >= 200 && log.status < 300;
+      const statusHtml = isSuccess
+        ? `<span style="color:var(--green);background:rgba(48,209,88,0.12);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:11px;font-weight:600;">200 OK</span>`
+        : `<span style="color:var(--red);background:rgba(255,69,58,0.12);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:11px;font-weight:600;">${log.status || 'ERR'}</span>`;
 
-    tbody.innerHTML = filtered.slice(0, 50).map(t => {
-      const timeStr = t.time || t.timestamp;
-      const displayTime = timeStr ? new Date(timeStr).toLocaleTimeString() : '--:--:--';
-      const promptText = (t.prompt || '用户对话').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      const totalTokens = t.estTokens || t.totalTokens || ((t.inputTokens || 0) + (t.outputTokens || 0));
+      const modeHtml = log.stream
+        ? `<span style="color:var(--purple);background:rgba(191,90,242,0.12);padding:1px 5px;border-radius:3px;font-size:10px;">⚡ 流式 (${log.chunks}pkts)</span>`
+        : `<span style="color:var(--sub);background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px;font-size:10px;">直出</span>`;
+
+      const promptSafe = (log.prompt || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const promptExcerpt = promptSafe.length > 38 ? promptSafe.slice(0, 38) + '…' : (promptSafe || '<无提示词>');
+
       return `
-        <tr>
-          <td style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted);">${displayTime}</td>
-          <td style="font-weight:500; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${promptText}">${promptText}</td>
-          <td style="font-family:var(--font-mono);">${t.steps || 1} 步</td>
-          <td style="font-family:var(--font-mono); text-align:right;">${(t.inputTokens || 0).toLocaleString()}</td>
-          <td style="font-family:var(--font-mono); text-align:right; color:var(--accent-green);">${(t.outputTokens || 0).toLocaleString()}</td>
-          <td style="font-family:var(--font-mono); text-align:right; color:var(--accent-blue-glow); font-weight:600;">${totalTokens.toLocaleString()}</td>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;" onclick="openAuditDetail(${idx})" title="点击查看详情">
+          <td style="padding:9px 14px;font-family:var(--mono);color:var(--muted);">${log.time || '—'}</td>
+          <td style="padding:9px 10px;">${statusHtml}</td>
+          <td style="padding:9px 10px;">
+            <div style="font-weight:500;color:var(--text);">${log.channel || 'Web反代'}</div>
+            <div style="margin-top:2px;">${modeHtml}</div>
+          </td>
+          <td style="padding:9px 10px;font-family:var(--mono);color:var(--blue);">${log.model || '—'}</td>
+          <td style="padding:9px 10px;font-family:var(--mono);color:var(--sub);">
+            ${log.duration_ms}ms <span style="font-size:10px;color:var(--muted);">(首:${log.ttft_ms}ms)</span>
+          </td>
+          <td style="padding:9px 10px;color:var(--text);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${promptSafe}">
+            ${promptExcerpt}
+          </td>
+          <td style="padding:9px 14px;text-align:right;">
+            <button class="abtn" onclick="event.stopPropagation();openAuditDetail(${idx})" style="font-size:11px;padding:2px 7px;">详情</button>
+          </td>
         </tr>
       `;
     }).join('');
   }
 
-  // 弹窗逻辑
-  let currentBindAiEmail = null;
-  function openBindAiKeyModal(email) {
-    currentBindAiEmail = email;
-    document.getElementById('bindAiKeyEmail').textContent = email;
-    document.getElementById('inputAiKey').value = '';
-    document.getElementById('modalBindAiKey').style.display = 'flex';
-  }
-  function closeBindAiKeyModal() { document.getElementById('modalBindAiKey').style.display = 'none'; }
-  async function submitBindAiKey() {
-    const apiKey = document.getElementById('inputAiKey').value.trim();
-    if (!apiKey) return;
-    await fetch(api('/api/account/bind-ai-key'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: currentBindAiEmail, apiKey })
-    });
-    closeBindAiKeyModal();
-    await loadData();
+  let selectedLog = null;
+  function openAuditDetail(idx) {
+    const log = currentAuditLogs[idx];
+    if (!log) return;
+    selectedLog = log;
+    document.getElementById('detailTitle').textContent = `请求详情 · ${log.time}`;
+    const badge = document.getElementById('detailStatusBadge');
+    badge.textContent = log.status + (log.status === 200 ? ' OK' : ' ERR');
+    badge.style.background = log.status === 200 ? 'rgba(48,209,88,0.2)' : 'rgba(255,69,58,0.2)';
+    badge.style.color = log.status === 200 ? 'var(--green)' : 'var(--red)';
+
+    document.getElementById('detailChannel').textContent = `${log.channel} (${log.stream ? '流式' : '非流式'})`;
+    document.getElementById('detailModel').textContent = log.model;
+    document.getElementById('detailDuration').textContent = `${log.duration_ms}ms (首字时延: ${log.ttft_ms}ms, 分包: ${log.chunks})`;
+    document.getElementById('detailAccount').textContent = log.account;
+
+    document.getElementById('detailPrompt').textContent = log.prompt || '<无内容>';
+    document.getElementById('detailResponse').textContent = log.error ? `【异常报错】\n${log.error}` : (log.response || '<无内容>');
+
+    document.getElementById('modalAuditDetail').classList.add('open');
   }
 
-  function openBindWebAuthModal(email) {
-    document.getElementById('bindWebAuthEmail').textContent = email;
-    document.getElementById('modalBindWebAuth').style.display = 'flex';
+  function copyDetailResponse() {
+    if (selectedLog && selectedLog.response) {
+      copyText(selectedLog.response);
+      showToast('已复制模型回答');
+    }
   }
-  function closeBindWebAuthModal() { document.getElementById('modalBindWebAuth').style.display = 'none'; }
-  async function submitBindWebAuth() {
-    const cookie = document.getElementById('inputWebCookie').value.trim();
-    const isPro = document.getElementById('chkIsPro').checked;
-    if (!cookie) return;
-    await fetch(api('/api/account/bind-web-auth'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: currentActiveEmail || 'active', cookie, isPro })
-    });
-    closeBindWebAuthModal();
-    await loadData();
-  }
+
+  // 默认启动后台审计轮询
+  auditTimer = setInterval(() => {
+    const isAuditActive = document.getElementById('tab-audit')?.classList.contains('active');
+    if (isAuditActive) loadAuditLogs();
+  }, 3000);
 
   // 初始化
+  renderEndpoints();
   loadData();
-  setInterval(loadData, 15000);
+  setInterval(loadData, 12000);
 </script>
 </body>
 </html>

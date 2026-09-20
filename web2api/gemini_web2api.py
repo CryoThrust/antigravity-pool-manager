@@ -54,7 +54,7 @@ DEFAULT_CONFIG = {
     "retry_attempts": 3,
     "retry_delay_sec": 2,
     "request_timeout_sec": 180,
-    "gemini_bl": "boq_assistant-bard-web-server_20260716.08_p0",
+    "gemini_bl": "boq_assistant-bard-web-server_20260917.13_p0",
     "auth_user": None,
     "xsrf_token": None,
     "default_model": "gemini-3.6-flash",
@@ -193,7 +193,7 @@ def resolve_cookie_and_sapisid(custom_cookie: Optional[str] = None) -> tuple:
     """Resolve cookie and sapisid from custom_cookie or fallback to cookie_file."""
     if custom_cookie and custom_cookie.strip():
         c_str = custom_cookie.strip()
-        pairs = dict(p.split("=", 1) for p in c_str.split("; ") if "=" in p)
+        pairs = dict(p.strip().split("=", 1) for p in re.split(r';\s*', c_str) if "=" in p)
         sapisid = pairs.get("SAPISID", "")
         return c_str, sapisid if sapisid else None
     return load_cookie()
@@ -215,12 +215,13 @@ def load_cookie() -> tuple:
             sapisid = data.get("sapisid", "")
         else:
             cookie_str = content
-            pairs = dict(p.split("=", 1) for p in cookie_str.split("; ") if "=" in p)
+            pairs = dict(p.strip().split("=", 1) for p in re.split(r';\s*', cookie_str) if "=" in p)
             sapisid = pairs.get("SAPISID", "")
         return cookie_str, sapisid if sapisid else None
     except Exception as e:
         log(f"Cookie load error: {e}")
         return "", None
+
 
 
 def make_sapisidhash(sapisid: str) -> str:

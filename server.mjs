@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { execSync, exec } from 'node:child_process';
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
@@ -67,6 +68,137 @@ function loadPool() {
 function savePool(data) {
   ensurePoolStorage();
   fs.writeFileSync(POOL_FILE, JSON.stringify(data, null, 2));
+}
+
+// ─── 企业级请求审计日志系统 (Request Audit & Observability) ───────────────────
+const AUDIT_LOG_FILE = path.join(POOL_DIR, 'audit.log');
+const AUDIT_BUFFER = []; // 环形内存缓冲区，保留最近 200 条
+
+try {
+  if (fs.existsSync(AUDIT_LOG_FILE)) {
+    const rawLines = fs.readFileSync(AUDIT_LOG_FILE, 'utf8').trim().split('\n').filter(Boolean);
+    for (const line of rawLines.slice(-100)) {
+      try { AUDIT_BUFFER.unshift(JSON.parse(line)); } catch (e) {}
+    }
+  }
+} catch (e) {}
+
+function recordAuditLog(entry) {
+  const now = new Date();
+  const timeStr = now.toTimeString().split(' ')[0];
+  const logItem = {
+    id: 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    time: timeStr,
+    timestamp: Date.now(),
+    channel: entry.channel || 'Web反代',
+    endpoint: entry.endpoint || '/claude/v1/messages',
+    model: entry.model || 'unknown',
+    stream: !!entry.stream,
+    status: entry.status || 200,
+    duration_ms: entry.duration_ms || 0,
+    ttft_ms: entry.ttft_ms || 0,
+    chunks: entry.chunks || 1,
+    prompt: (entry.prompt || '').slice(0, 300),
+    response: (entry.response || '').slice(0, 500),
+    account: entry.account || '默认账号',
+    error: entry.error || null
+  };
+
+  AUDIT_BUFFER.unshift(logItem);
+  if (AUDIT_BUFFER.length > 200) AUDIT_BUFFER.pop();
+
+  try {
+    fs.appendFileSync(AUDIT_LOG_FILE, JSON.stringify(logItem) + '\n', 'utf8');
+  } catch (e) {}
+
+  const statusTag = logItem.status >= 200 && logItem.status < 300
+    ? `\x1b[32m${logItem.status} OK\x1b[0m`
+    : `\x1b[31m${logItem.status} ERR\x1b[0m`;
+  const streamTag = logItem.stream ? `\x1b[35mSTREAM (${logItem.chunks}pkts)\x1b[0m` : `\x1b[34mSYNC\x1b[0m`;
+  console.log(`\x1b[36m[AUDIT ${logItem.time}]\x1b[0m ${statusTag} | \x1b[33m${logItem.channel}\x1b[0m | ${logItem.model} | ${streamTag} | 耗时:${logItem.duration_ms}ms (TTFT:${logItem.ttft_ms}ms) | "${logItem.prompt.replace(/\n/g, ' ').slice(0, 40)}"`);
+
+  return logItem;
+}
+
+// ─── 统一标准错误诊断与透传系统 (Error Transparency Engine) ─────────────────
+function formatErrorMessage(status, rawError, channel = 'Web反代') {
+  let title = '服务调用受阻';
+  let reason = rawError || '未知异常';
+  let action = '请稍后重试或检查后台服务。';
+
+  const errStr = String(rawError || '').toLowerCase();
+  if (status === 401 || errStr.includes('401') || errStr.includes('invalid api key') || errStr.includes('cookie') || errStr.includes('auth')) {
+    title = 'Google 凭据鉴权失败 (401 Unauthorized)';
+    reason = '当前账号的 Web Cookie 已失效、被 Google 强制退出，或尚未绑定。';
+    action = '请打开控制台 (http://localhost:3999)，在「账号矩阵」点击当前账号的【绑定 Cookie】重新提取并保存；或在客户端切换为「官方 API」通道。';
+  } else if (status === 429 || errStr.includes('429') || errStr.includes('resource_exhausted') || errStr.includes('rate limit')) {
+    title = '请求频次超限 / 突发配额满 (429 Rate Limit)';
+    reason = '当前账号触发了 Google 频率风控或单分钟 Token 上限 (TPM)。';
+    action = '请暂停 1~2 分钟后再试，或在后台切换到矩阵中的备用账号。';
+  } else if (status === 502 || status === 504 || errStr.includes('econnrefused') || errStr.includes('fetch failed')) {
+    title = '上游网关连接失败 (502/504 Bad Gateway)';
+    reason = '无法连接到本地 8085 反代服务或科学上网代理节点异常。';
+    action = '请确认代理工具已开启全局/规则代理，并检查 8085 进程是否存活。';
+  }
+
+  return `> ⚠️ **【Antigravity 错误诊断 · ${title}】**\n>\n> - **当前渠道**：${channel}\n> - **异常原因**：${reason}\n> - **解决建议**：${action}\n>\n> *（原始错误详情: ${(rawError || '').slice(0, 160)}）*`;
+}
+
+function sendStreamError(res, msgId, reqModel, status, errText, channel = 'Web反代') {
+  const formatted = formatErrorMessage(status, errText, channel);
+  try {
+    if (!res.headersSent) {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+        'Access-Control-Allow-Origin': '*'
+      });
+      if (res.flushHeaders) res.flushHeaders();
+
+      res.write(`event: message_start\ndata: ${JSON.stringify({
+        type: 'message_start',
+        message: {
+          id: msgId || ('err_' + Math.random().toString(36).slice(2, 10)),
+          type: 'message',
+          role: 'assistant',
+          model: reqModel,
+          content: [],
+          stop_reason: null,
+          usage: { input_tokens: 1, output_tokens: 1 }
+        }
+      })}\n\n`);
+
+      res.write(`event: content_block_start\ndata: ${JSON.stringify({
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'text', text: '' }
+      })}\n\n`);
+    }
+
+    res.write(`event: content_block_delta\ndata: ${JSON.stringify({
+      type: 'content_block_delta',
+      index: 0,
+      delta: { type: 'text_delta', text: formatted }
+    })}\n\n`);
+
+    res.write(`event: content_block_stop\ndata: ${JSON.stringify({
+      type: 'content_block_stop',
+      index: 0
+    })}\n\n`);
+
+    res.write(`event: message_delta\ndata: ${JSON.stringify({
+      type: 'message_delta',
+      delta: { stop_reason: 'end_turn', stop_sequence: null },
+      usage: { output_tokens: 30 }
+    })}\n\n`);
+
+    res.write(`event: message_stop\ndata: {"type":"message_stop"}\n\n`);
+    res.end();
+  } catch (e) {
+    try { res.end(); } catch (err) {}
+  }
 }
 
 // 读取系统凭据（跨平台支持：macOS Keychain 与 Windows Credential Manager / JSON fallback）
@@ -260,6 +392,16 @@ async function fetchAccountQuotaDirect(account) {
       }
 
       account.quota = parsed;
+
+      // 智能全自动识别账号等级（Pro 会员 vs 标准账号），无需用户手动标注
+      const hasClaudeOrGpt = !!(parsed.claude_5h || parsed.claude_weekly || groups.some(g => g.displayName && (g.displayName.includes('Claude') || g.displayName.includes('GPT'))));
+      const isWebPro = !!(account.web_auth?.is_pro);
+      if (hasClaudeOrGpt || isWebPro) {
+        account.tier = 'pro';
+      } else {
+        account.tier = 'standard';
+      }
+
       return parsed;
     } else {
       const errData = await res.json().catch(() => ({}));
@@ -787,20 +929,34 @@ function resetDailyQuotasIfNeeded(pool) {
 
 function resolveModelTarget(requestedModel) {
   const req = (requestedModel || '').toLowerCase().trim();
-  // 任何包含 think 的请求统一走 Web 反代支持 @think 等级调度
-  if (req.includes('@think') || req.startsWith('web-') || req.startsWith('gemini-3.') || req.includes('extended') || req === 'gemini-auto') {
+  // 显式指定或 Gemini 3.x 系列全部走 Web 反代
+  if (req.startsWith('web-') || req.startsWith('gemini-3.') || req.includes('@think') || req.includes('extended') || req === 'gemini-auto') {
     const cleanName = req.replace(/^web-/, '');
     return { type: 'web', model: cleanName || 'gemini-3.8-flash' };
   }
+
+  // 检查号池是否拥有真实有效的官方 AI Studio Key
+  const pool = loadPool();
+  const hasValidOfficialKey = Object.values(pool.accounts || {}).some(a => {
+    const k = a.ai_studio?.api_key;
+    return k && k.startsWith('AIzaSy') && !k.includes('TEST_KEY') && !k.includes('ELOSOMALDONADO') && a.ai_studio?.status !== 'exhausted';
+  });
+
+  // 如果没有真实有效的官方 Key，统一自动路由到 Web 反代（保证已绑定的 Web Cookie 生效）
+  if (!hasValidOfficialKey) {
+    const cleanName = req.replace(/^claude-3-[0-9a-z\-]+/, 'gemini-3.8-flash').replace(/^gpt-[0-9a-z\-]+/, 'gemini-3.8-flash');
+    return { type: 'web', model: cleanName || 'gemini-3.8-flash' };
+  }
+
   if (req.includes('pro') || req.startsWith('gpt-4') || req.startsWith('claude-3-5')) {
     return { type: 'ai_studio', model: 'gemini-1.5-pro' };
   }
   if (req.includes('thinking')) {
     return { type: 'ai_studio', model: 'gemini-2.0-flash-thinking-exp' };
   }
-  // 默认尝试 Web 反代上的最新 flash，如果不可用则走 ai_studio
   return { type: 'web', model: req || 'gemini-3.8-flash' };
 }
+
 
 function formatGeminiPayload(messages) {
   let systemInstruction = null;
@@ -825,20 +981,29 @@ function formatGeminiPayload(messages) {
 // 自动保活与启动 web2api 逆向服务
 let web2ApiProc = null;
 function ensureWeb2ApiWorker() {
-  const scriptPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'web2api', 'gemini_web2api.py');
+  let scriptPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'web2api', 'gemini_web2api.py');
+  if (!fs.existsSync(scriptPath)) {
+    scriptPath = '/Users/yohanes/antigravity-switcher/web2api/gemini_web2api.py';
+  }
   if (!fs.existsSync(scriptPath)) return;
+
   http.get('http://localhost:8085/v1/models', res => {
     // 已正常运行
   }).on('error', () => {
     try {
-      web2ApiProc = exec(`python3 "${scriptPath}" --port 8085`);
+      const pyCmd = fs.existsSync('/usr/bin/python3') ? '/usr/bin/python3' : 'python3';
+      web2ApiProc = exec(`${pyCmd} "${scriptPath}" --port 8085`, {
+        cwd: path.dirname(scriptPath)
+      });
       web2ApiProc.unref();
-      console.log('已在后台自启动 Gemini Web 反代网关 (端口 8085)');
-    } catch (e) {}
+      console.log(`已在后台自启动 Gemini Web 反代网关 (端口 8085，脚本: ${scriptPath})`);
+    } catch (e) {
+      console.warn('自启动 web2api 失败:', e.message);
+    }
   });
 }
 ensureWeb2ApiWorker();
-setInterval(ensureWeb2ApiWorker, 30000);
+setInterval(ensureWeb2ApiWorker, 15000);
 
 // ─── 智能自适应巡检与节能待机系统 (Smart Standby & 10-Minute Probe Engine) ───────────
 const STANDBY_IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 连续 15 分钟无业务请求自动进入节能待机
@@ -1006,9 +1171,17 @@ async function forwardToWebProxy(req, res, body, model) {
     .filter(([_, acc]) => acc.web_auth?.cookie && acc.web_auth?.status === 'active')
     .sort((a, b) => (new Date(a[1].web_auth.last_used || 0).getTime()) - (new Date(b[1].web_auth.last_used || 0).getTime()));
 
+  // 优先选取当前激活账号；若无激活账号，则从可用且已登录有效 Cookie 的账号池轮询
   let targetCookie = '';
   let chosenEmail = null;
-  if (activeWebAccounts.length > 0) {
+
+  const activeAcc = pool.accounts?.[pool.active];
+  if (activeAcc?.web_auth?.cookie && activeAcc.web_auth?.status === 'active') {
+    targetCookie = activeAcc.web_auth.cookie;
+    chosenEmail = pool.active;
+    activeAcc.web_auth.last_used = new Date().toISOString();
+    savePool(pool);
+  } else if (activeWebAccounts.length > 0) {
     const [email, acc] = activeWebAccounts[0];
     targetCookie = acc.web_auth.cookie;
     chosenEmail = email;
@@ -1194,35 +1367,81 @@ async function callAIStudioNonStream(email, acc, pool, key, model, messages) {
   };
 }
 
-async function handleChatCompletions(req, res, body) {
+// ─── 专门的官方 API 聊天补全端点 ─────────────────────────────
+async function handleOfficialApiChatCompletions(req, res, body) {
   touchActivity();
   const pool = loadPool();
   resetDailyQuotasIfNeeded(pool);
 
-  const { model: reqModel, messages, stream = false } = body;
-  const target = resolveModelTarget(reqModel);
+  const { model: reqModel, messages, stream = false } = body || {};
+  const authHeader = req.headers['authorization'] || '';
+  const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
 
-  if (target.type === 'web') {
-    return forwardToWebProxy(req, res, body, target.model);
+  // 1. 如果请求头显式带了 Google API Key (以 AIzaSy 开头且非测试 key)
+  let candidateAccounts = [];
+  if (bearerKey && bearerKey.startsWith('AIzaSy') && !bearerKey.includes('TEST_KEY')) {
+    candidateAccounts.push(['request_bearer', { ai_studio: { api_key: bearerKey } }]);
+  } else {
+    // 从号池中筛选真实绑定的 Google AI Studio Key
+    candidateAccounts = Object.entries(pool.accounts || {})
+      .filter(([_, acc]) => {
+        const k = acc.ai_studio?.api_key;
+        return k && k.startsWith('AIzaSy') && !k.includes('TEST_KEY') && acc.ai_studio?.status !== 'exhausted';
+      })
+      .sort((a, b) => (a[1].ai_studio.used_today || 0) - (b[1].ai_studio.used_today || 0));
   }
 
-  // 筛选可用 AI Studio Key（按使用量从低到高排序，实现负载均衡）
-  const candidateAccounts = Object.entries(pool.accounts || {})
-    .filter(([_, acc]) => acc.ai_studio?.api_key && acc.ai_studio?.status !== 'exhausted' && (acc.ai_studio?.used_today || 0) < (acc.ai_studio?.daily_limit || 1500))
-    .sort((a, b) => (a[1].ai_studio.used_today || 0) - (b[1].ai_studio.used_today || 0));
-
   if (candidateAccounts.length === 0) {
-    console.log('AI Studio 算力池无可用 Key，自动弹性降级至 Web 反代通道...');
-    return forwardToWebProxy(req, res, body, 'gemini-3.6-flash');
+    const errMsg = '【官方 API 专线提示】未检测到有效的 Google AI Studio API Key。\n1. 请在控制台「账号矩阵」为账号绑定真实 Key；\n2. 若需免 Key 使用，请在模型列表切换至「Antigravity · Web反代 (3.8Flash)」通道。';
+    recordAuditLog({
+      channel: '官方API (Gemini 2.0)',
+      endpoint: req.url,
+      model: reqModel || 'gemini-2.0-flash',
+      stream: !!stream,
+      status: 401,
+      duration_ms: 1,
+      ttft_ms: 1,
+      chunks: 1,
+      prompt: (messages || []).map(m => m.content).join(' ').slice(0, 100),
+      response: errMsg,
+      account: '未配置Key',
+      error: '缺少 AI Studio API Key'
+    });
+    if (stream) {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      });
+      const cid = 'err_' + Math.random().toString(36).slice(2, 10);
+      const chunk = { id: cid, object: 'chat.completion.chunk', created: Math.floor(Date.now()/1000), model: reqModel, choices: [{ index: 0, delta: { content: `> ⚠️ **${errMsg.replace(/\n/g, '\n> ')}**` }, finish_reason: 'stop' }] };
+      res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+      res.write('data: [DONE]\n\n');
+      return res.end();
+    }
+    res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({
+      error: {
+        message: errMsg,
+        type: 'authentication_error',
+        channel: 'official_api'
+      }
+    }));
+  }
+
+  let targetModel = reqModel || 'gemini-1.5-flash';
+  if (targetModel.startsWith('gemini-3.')) {
+    targetModel = 'gemini-1.5-flash';
   }
 
   for (const [email, acc] of candidateAccounts) {
     const key = acc.ai_studio.api_key;
     try {
       if (stream) {
-        return await callAIStudioStream(email, acc, pool, key, target.model, messages, res);
+        return await callAIStudioStream(email, acc, pool, key, targetModel, messages, res);
       } else {
-        const result = await callAIStudioNonStream(email, acc, pool, key, target.model, messages);
+        const result = await callAIStudioNonStream(email, acc, pool, key, targetModel, messages);
         res.writeHead(200, {
           'Content-Type': 'application/json; charset=utf-8',
           'Access-Control-Allow-Origin': '*'
@@ -1230,7 +1449,7 @@ async function handleChatCompletions(req, res, body) {
         return res.end(JSON.stringify(result));
       }
     } catch (err) {
-      console.warn(`账号 ${email} 调用异常: ${err.message}，正在无感故障转移至下一个账号...`);
+      console.warn(`[官方 API] 账号 ${email} 调用异常: ${err.message}`);
       if (err.isQuota) {
         acc.ai_studio.status = 'exhausted';
         acc.ai_studio.used_today = acc.ai_studio.daily_limit || 1500;
@@ -1239,73 +1458,233 @@ async function handleChatCompletions(req, res, body) {
     }
   }
 
-  return forwardToWebProxy(req, res, body, 'gemini-3.6-flash');
+  const errDesc = '【官方 API 专线】所有配置的 Google API Key 均请求受限或网络异常，请在 Antigravity Manager 检查 Key 配额或切换至 Web 反代免流通道。';
+  if (stream) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*'
+    });
+    const cid = 'err_' + Math.random().toString(36).slice(2, 10);
+    const chunk = { id: cid, object: 'chat.completion.chunk', created: Math.floor(Date.now()/1000), model: targetModel, choices: [{ index: 0, delta: { content: `> ⚠️ **${errDesc}**` }, finish_reason: 'stop' }] };
+    res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    res.write('data: [DONE]\n\n');
+    return res.end();
+  }
+  res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+  return res.end(JSON.stringify({
+    error: {
+      message: errDesc,
+      type: 'upstream_error',
+      channel: 'official_api'
+    }
+  }));
 }
 
-async function handleImageGenerations(req, res, body) {
+// ─── 专门的官方 API 生图端点 ─────────────────────────────
+async function handleOfficialApiImageGenerations(req, res, body) {
   touchActivity();
   const pool = loadPool();
-  const { prompt, n = 1, size = '1024x1024' } = body || {};
+  const { prompt, n = 1, email: targetEmail } = body || {};
 
   if (!prompt) {
     res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
     return res.end(JSON.stringify({ error: { message: '缺少生图提示词 prompt', type: 'invalid_request_error' } }));
   }
 
-  // 1. 若有已绑定 API Key 的账号，优先通过官方 Imagen 3 极速出图
-  const candidateAccounts = Object.entries(pool.accounts || {})
-    .filter(([_, acc]) => acc.ai_studio?.api_key && acc.ai_studio?.status !== 'exhausted');
+  const authHeader = req.headers['authorization'] || '';
+  const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
 
-  if (candidateAccounts.length > 0) {
-    for (const [email, acc] of candidateAccounts) {
-      const apiKey = acc.ai_studio.api_key;
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-        const upstream = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instances: [{ prompt }],
-            parameters: { sampleCount: Math.min(n, 4), aspectRatio: '1:1' }
-          })
-        });
+  let candidateAccounts = [];
+  if (bearerKey && bearerKey.startsWith('AIzaSy') && !bearerKey.includes('TEST_KEY')) {
+    candidateAccounts.push(['request_bearer', { ai_studio: { api_key: bearerKey } }]);
+  } else {
+    candidateAccounts = Object.entries(pool.accounts || {})
+      .filter(([email, acc]) => {
+        if (targetEmail && targetEmail !== 'auto' && email !== targetEmail) return false;
+        const k = acc.ai_studio?.api_key;
+        return k && k.startsWith('AIzaSy') && !k.includes('TEST_KEY') && acc.ai_studio?.status !== 'exhausted';
+      });
+  }
 
-        if (!upstream.ok) {
-          const errText = await upstream.text();
-          console.warn(`Imagen 3 生图接口调用返回异常 (${email}):`, errText);
-          continue;
-        }
+  if (candidateAccounts.length === 0) {
+    res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({
+      error: {
+        message: '【官方 Imagen 3 专线提示】官方 Imagen 3 高清画作接口需要配置有效的 Google AI Studio API Key。\n请在「账号矩阵」中为账号绑定真实 Key，即可直接使用 1024x1024 官方画质。',
+        type: 'api_key_required',
+        channel: 'official_api'
+      },
+      data: []
+    }));
+  }
 
+  for (const [email, acc] of candidateAccounts) {
+    const apiKey = acc.ai_studio.api_key;
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+      const upstream = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instances: [{ prompt }],
+          parameters: { sampleCount: Math.min(n, 4), aspectRatio: '1:1' }
+        })
+      });
+
+      if (upstream.ok) {
         const data = await upstream.json();
         const predictions = data.predictions || [];
         if (predictions.length > 0) {
+          recordLiveRequest({
+            model: 'imagen-3.0',
+            client: '官方 API 专线',
+            status: 200,
+            latencyMs: 1100,
+            account: email.split('@')[0]
+          });
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
           return res.end(JSON.stringify({
             created: Math.floor(Date.now() / 1000),
+            channel: 'Google 官方 Imagen 3 专线',
+            account: email,
             data: predictions.map(p => ({
               b64_json: p.bytesBase64Encoded,
               url: `data:image/png;base64,${p.bytesBase64Encoded}`
             }))
           }));
         }
-      } catch (err) {
-        console.error(`Imagen 3 异常 (${email}):`, err.message);
+      } else {
+        const errText = await upstream.text();
+        console.warn(`[官方 API] Imagen 3 返回异常 (${email}):`, errText);
       }
+    } catch (err) {
+      console.error(`[官方 API] Imagen 3 网络异常 (${email}):`, err.message);
     }
   }
 
-  // 2. 若暂无配置 API Key，返回清晰的渠道健康状态与引导提示
-  res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+  res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
   return res.end(JSON.stringify({
     error: {
-      message: '生图能力提示：Google 官方对匿名会话禁用了 Imagen 文生图功能（提示须登录 Google 账号）。若需启用高清生图 (Imagen 3)，请在控制台中点击「+Key」绑定 Google AI Studio 免费 API Key，即可免翻/免登录直接高速生成 1024x1024 高保真图像。',
-      type: 'channel_configuration_required',
-      details: {
-        text_channel: '✅ Web 逆向与文本对话 100% 畅通',
-        image_channel: '⚠️ 需要至少 1 个绑定的 AI Studio API Key 或已同步 Cookie 的 Google 账号'
-      }
-    }
+      message: '【官方 API 专线】调用 Google Imagen 3 失败，可能配额已用尽或提示词触发安全审查。',
+      type: 'upstream_error',
+      channel: 'official_api'
+    },
+    data: []
   }));
+}
+
+// ─── 专门的 Web 反代聊天补全端点 ─────────────────────────────
+async function handleWebProxyChatCompletions(req, res, body) {
+  touchActivity();
+  const { model: reqModel = 'gemini-3.8-flash' } = body || {};
+  return forwardToWebProxy(req, res, body, reqModel);
+}
+
+// ─── 专门的 Web 反代生图端点 ─────────────────────────────
+async function handleWebProxyImageGenerations(req, res, body) {
+  touchActivity();
+  const pool = loadPool();
+  const { prompt, email: targetEmail } = body || {};
+
+  if (!prompt) {
+    res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({ error: { message: '缺少生图提示词 prompt', type: 'invalid_request_error' } }));
+  }
+
+  // 检查当前账号或号池是否有真实有效的 Google Web Cookie
+  const webAccounts = Object.entries(pool.accounts || {})
+    .filter(([email, acc]) => {
+      if (targetEmail && targetEmail !== 'auto' && email !== targetEmail) return false;
+      const c = acc.web_auth?.cookie;
+      return c && c.length > 50 && (c.includes('SAPISID') || c.includes('__Secure-1PSID') || c.includes('SID='));
+    });
+
+  if (webAccounts.length === 0) {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({
+      error: {
+        message: '【Web 反代通道拦截：未登录账号】\n您当前选中的账号尚未绑定 Gemini Web 会话凭据（Cookie / SAPISID）。\nGoogle 官方对网页端 Imagen 3 绘图能力强制要求真实登录账号，匿名/未登录会话会被 Google 原生拒绝（此前返回的正是 Google 的未登录提示）。\n\n解决方式：\n1. 前往控制台「账号矩阵」，在对应账号行点击【登录 Web 会话 / 同步 Cookie】完成登录绑定；\n2. 或在顶部切换至【⚡️ 官方 API 专线 (/api-v1)】直接调用官方 Imagen 3 模型。',
+        type: 'account_web_session_required',
+        channel: 'web_proxy'
+      },
+      data: []
+    }));
+  }
+
+  // 优先选取当前激活账号；若无激活账号，则使用账号池中的第一个有效 Web 账号
+  let chosenCookie = webAccounts[0][1].web_auth.cookie;
+  let chosenEmail = webAccounts[0][0];
+  const activeMatched = webAccounts.find(([email]) => email === pool.active);
+  if (activeMatched) {
+    chosenCookie = activeMatched[1].web_auth.cookie;
+    chosenEmail = activeMatched[0];
+  }
+
+  try {
+    const upstream = await fetch('http://localhost:8085/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer any',
+        'X-Gemini-Cookie': chosenCookie
+      },
+      body: JSON.stringify({
+        model: 'gemini-3.1-flash-image',
+        messages: [{ role: 'user', content: `Generate an image: ${prompt}` }]
+      })
+    });
+
+    if (upstream.ok) {
+      const data = await upstream.json();
+      const content = data.choices?.[0]?.message?.content || '';
+      const imgMatch = content.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/) || content.match(/(https?:\/\/[^\s\)]+\.(png|jpe?g|webp|gif))/i);
+      if (imgMatch) {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({
+          created: Math.floor(Date.now() / 1000),
+          channel: 'Web 逆向反代通道',
+          account: chosenEmail,
+          data: [{ url: imgMatch[1] }]
+        }));
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({
+        created: Math.floor(Date.now() / 1000),
+        channel: 'Web 逆向通道',
+        account: chosenEmail,
+        textMessage: content,
+        data: []
+      }));
+    }
+  } catch (err) {
+    console.warn('Web 反代生图通路异常:', err.message);
+  }
+
+  res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+  return res.end(JSON.stringify({
+    error: {
+      message: '【Web 反代通道】调用 Gemini 网页端生图失败，可能 Cookie 已过期或触发 Google 防火墙验证。',
+      type: 'upstream_error',
+      channel: 'web_proxy'
+    },
+    data: []
+  }));
+}
+
+// 兼容老调用 handleChatCompletions / handleImageGenerations
+async function handleChatCompletions(req, res, body) {
+  const { model: reqModel } = body || {};
+  const target = resolveModelTarget(reqModel);
+  if (target.type === 'web') {
+    return handleWebProxyChatCompletions(req, res, body);
+  }
+  return handleOfficialApiChatCompletions(req, res, body);
+}
+
+async function handleImageGenerations(req, res, body) {
+  return handleOfficialApiImageGenerations(req, res, body);
 }
 
 async function handleHealthAudit(req, res) {
@@ -1577,6 +1956,7 @@ const server = http.createServer(async (req, res) => {
     const dialogTurns = getAllTurnsList();
     return sendJSON({
       sessionStats,
+      languageServer: getLanguageServerInfo(),
       conversations,
       dialogTurns,
       liveRequests: recentRequests.slice(0, 6),
@@ -1692,6 +2072,11 @@ const server = http.createServer(async (req, res) => {
     return sendJSON({ success: true, autoSwitch: pool.autoSwitch });
   }
 
+  if (url.pathname === '/api/restart-ls' && req.method === 'POST') {
+    const ok = restartLanguageServer();
+    return sendJSON({ success: true, restarted: ok, message: ok ? 'Language Server 进程已发送重启信号' : 'Language Server 未在运行' });
+  }
+
   if (url.pathname === '/api/open-url' && req.method === 'POST') {
     const body = await readBody();
     const targetUrl = body.url;
@@ -1724,7 +2109,71 @@ const server = http.createServer(async (req, res) => {
     return sendJSON({ success: true });
   }
 
-  // ─── OpenAI 兼容模型列表 ─────────────────────────────
+  if (url.pathname === '/api/audit-logs' && req.method === 'GET') {
+    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+    return sendJSON({
+      success: true,
+      total: AUDIT_BUFFER.length,
+      logs: AUDIT_BUFFER.slice(0, limit)
+    });
+  }
+
+  if (url.pathname === '/api/audit-logs/clear' && req.method === 'POST') {
+    AUDIT_BUFFER.length = 0;
+    try { fs.writeFileSync(AUDIT_LOG_FILE, '', 'utf8'); } catch (e) {}
+    return sendJSON({ success: true, message: '审计日志已清空' });
+  }
+
+  // ─── 通道 1: 官方 API 算力池专线 (Official API Gateway: /api-v1 或 /api/v1) ───────────
+  if ((url.pathname === '/api-v1/chat/completions' || url.pathname === '/api/v1/chat/completions') && req.method === 'POST') {
+    const body = await readBody();
+    return handleOfficialApiChatCompletions(req, res, body);
+  }
+  if ((url.pathname === '/api-v1/images/generations' || url.pathname === '/api/v1/images/generations') && req.method === 'POST') {
+    const body = await readBody();
+    return handleOfficialApiImageGenerations(req, res, body);
+  }
+  if ((url.pathname === '/api-v1/models' || url.pathname === '/api/v1/models') && req.method === 'GET') {
+    return sendJSON({
+      object: 'list',
+      data: [
+        { id: 'gemini-1.5-flash', object: 'model', owned_by: 'google', description: 'Google 官方高频轻量模型 (AI Studio)' },
+        { id: 'gemini-1.5-pro', object: 'model', owned_by: 'google', description: 'Google 官方百万上下文旗舰模型 (AI Studio)' },
+        { id: 'gemini-2.0-flash', object: 'model', owned_by: 'google', description: 'Google 官方 2.0 超清快速模型 (AI Studio)' },
+        { id: 'imagen-3.0', object: 'model', owned_by: 'google', description: 'Google 官方 1024x1024 Imagen 3 超清画作生成' }
+      ]
+    });
+  }
+
+  // ─── 通道 2: Web 逆向反代免流通道 (Web Reverse Proxy: /web-v1 或 /web/v1) ─────────────
+  if ((url.pathname === '/web-v1/chat/completions' || url.pathname === '/web/v1/chat/completions') && req.method === 'POST') {
+    const body = await readBody();
+    return handleWebProxyChatCompletions(req, res, body);
+  }
+  if ((url.pathname === '/web-v1/images/generations' || url.pathname === '/web/v1/images/generations') && req.method === 'POST') {
+    const body = await readBody();
+    return handleWebProxyImageGenerations(req, res, body);
+  }
+  if ((url.pathname === '/web-v1/models' || url.pathname === '/web/v1/models') && req.method === 'GET') {
+    try {
+      const probe = await fetch('http://localhost:8085/v1/models');
+      if (probe.ok) {
+        const data = await probe.json();
+        return sendJSON(data);
+      }
+    } catch (e) {}
+    return sendJSON({
+      object: 'list',
+      data: [
+        { id: 'gemini-3.8-flash', object: 'model', owned_by: 'google-web', description: 'Gemini Web 逆向 3.8 全能' },
+        { id: 'gemini-3.8-live-extended-thinking', object: 'model', owned_by: 'google-web', description: 'Gemini Web 逆向思考链推理' },
+        { id: 'gemini-3.1-pro', object: 'model', owned_by: 'google-web', description: 'Gemini Web 逆向 Pro 会员专线' },
+        { id: 'gemini-2.0-flash', object: 'model', owned_by: 'google-web', description: 'Gemini Web 免登录基础文本问答' }
+      ]
+    });
+  }
+
+  // ─── OpenAI 兼容模型列表 (通用兼容) ─────────────────────────────
   if (url.pathname === '/v1/models' && req.method === 'GET') {
     const dynamicModels = await syncDynamicModels();
     return sendJSON({
@@ -1740,16 +2189,314 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  // ─── OpenAI 兼容聊天补全端点 ─────────────────────────────
+  // ─── OpenAI 兼容聊天补全端点 (通用兼容) ─────────────────────────────
   if (url.pathname === '/v1/chat/completions' && req.method === 'POST') {
     const body = await readBody();
     return handleChatCompletions(req, res, body);
   }
 
-  // ─── OpenAI 兼容生图端点 ─────────────────────────────
+  // ─── OpenAI 兼容生图端点 (通用兼容) ─────────────────────────────
   if (url.pathname === '/v1/images/generations' && req.method === 'POST') {
     const body = await readBody();
     return handleImageGenerations(req, res, body);
+  }
+
+  // ─── Claude SDK 兼容格式 (/claude/v1/messages, /v1/messages 等 → 适配 Anthropic 标准格式，支持打字机流式 SSE 与审计) ─────
+  if (['/claude/v1/messages', '/claude/messages', '/v1/messages', '/messages'].includes(url.pathname) && req.method === 'POST') {
+    const tStart = Date.now();
+    let tFirstToken = 0;
+    let chunkCount = 0;
+    let fullResponse = '';
+
+    const body = await readBody();
+    const reqModel = body.model || 'gemini-3.8-flash';
+    const isStream = body.stream !== false;
+    const promptPreview = (body.messages || []).map(m => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n');
+
+    const openaiBody = {
+      model: reqModel.includes('pro') ? 'gemini-3.1-pro' : 'gemini-3.8-flash',
+      messages: (body.messages || []).map(m => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: Array.isArray(m.content)
+          ? m.content.map(b => b.type === 'text' ? b.text : '[media]').join('')
+          : (m.content || '')
+      })),
+      stream: isStream,
+      max_tokens: body.max_tokens,
+      temperature: body.temperature
+    };
+    if (body.system) {
+      openaiBody.messages.unshift({
+        role: 'system',
+        content: typeof body.system === 'string' ? body.system : JSON.stringify(body.system)
+      });
+    }
+
+    const pool = loadPool();
+    let chosenCookie = pool.accounts?.[pool.active]?.web_auth?.cookie || '';
+    if (!chosenCookie) {
+      const anyWeb = Object.values(pool.accounts || {}).find(a => a.web_auth?.cookie);
+      if (anyWeb) chosenCookie = anyWeb.web_auth.cookie;
+    }
+    const currentAccount = pool.active || (chosenCookie ? 'Web-Cookie' : '未绑定');
+    const msgId = 'msg_' + Math.random().toString(36).substring(2, 14);
+
+    // 如果完全没有检测到可用 Cookie，直接以标准错误卡片打印在屏幕上，告别静默失败
+    if (!chosenCookie) {
+      recordAuditLog({
+        channel: 'Web反代 (Gemini 3.8)',
+        endpoint: url.pathname,
+        model: reqModel,
+        stream: isStream,
+        status: 401,
+        duration_ms: Date.now() - tStart,
+        ttft_ms: 0,
+        chunks: 0,
+        prompt: promptPreview,
+        response: '',
+        account: currentAccount,
+        error: '未配置或未绑定 Google Cookie'
+      });
+      if (isStream) {
+        return sendStreamError(res, msgId, reqModel, 401, '尚未绑定 Cookie，请在控制台 http://localhost:3999 绑定', 'Web反代 (Gemini 3.8)');
+      }
+      return sendJSON({ error: { type: 'authentication_error', message: formatErrorMessage(401, '未绑定 Cookie', 'Web反代 (Gemini 3.8)') } }, 401);
+    }
+
+    try {
+      const upstream = await fetch('http://localhost:8085/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer any',
+          'X-Gemini-Cookie': chosenCookie
+        },
+        body: JSON.stringify(openaiBody)
+      });
+
+      if (!upstream.ok) {
+        const errText = await upstream.text();
+        recordAuditLog({
+          channel: 'Web反代 (Gemini 3.8)',
+          endpoint: url.pathname,
+          model: reqModel,
+          stream: isStream,
+          status: upstream.status,
+          duration_ms: Date.now() - tStart,
+          ttft_ms: 0,
+          chunks: 0,
+          prompt: promptPreview,
+          response: '',
+          account: currentAccount,
+          error: errText
+        });
+        if (isStream) {
+          return sendStreamError(res, msgId, reqModel, upstream.status, errText, 'Web反代 (Gemini 3.8)');
+        }
+        return sendJSON({ error: { type: 'api_error', message: formatErrorMessage(upstream.status, errText, 'Web反代 (Gemini 3.8)') } }, upstream.status);
+      }
+
+      if (!isStream) {
+        const data = await upstream.json();
+        const contentText = data.choices?.[0]?.message?.content || '';
+        const dur = Date.now() - tStart;
+        recordAuditLog({
+          channel: 'Web反代 (Gemini 3.8)',
+          endpoint: url.pathname,
+          model: reqModel,
+          stream: false,
+          status: 200,
+          duration_ms: dur,
+          ttft_ms: dur,
+          chunks: 1,
+          prompt: promptPreview,
+          response: contentText,
+          account: currentAccount
+        });
+        return sendJSON({
+          id: msgId,
+          type: 'message',
+          role: 'assistant',
+          model: reqModel,
+          content: [{ type: 'text', text: contentText }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 15, output_tokens: 30 }
+        });
+      }
+
+      // 处理流式 SSE 协议转接 (OpenAI SSE -> Anthropic SSE) - 配合打字机平滑节流
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+        'Access-Control-Allow-Origin': '*'
+      });
+      if (res.flushHeaders) res.flushHeaders();
+
+      res.write(`event: message_start\ndata: ${JSON.stringify({
+        type: 'message_start',
+        message: {
+          id: msgId,
+          type: 'message',
+          role: 'assistant',
+          model: reqModel,
+          content: [],
+          stop_reason: null,
+          stop_sequence: null,
+          usage: { input_tokens: 15, output_tokens: 1 }
+        }
+      })}\n\n`);
+
+      res.write(`event: content_block_start\ndata: ${JSON.stringify({
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'text', text: '' }
+      })}\n\n`);
+
+      const reader = upstream.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          const dataStr = trimmed.slice(5).trim();
+          if (dataStr === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(dataStr);
+            const deltaText = parsed.choices?.[0]?.delta?.content || '';
+            if (deltaText) {
+              if (!tFirstToken) tFirstToken = Date.now();
+              fullResponse += deltaText;
+
+              // 智能打字机平滑器：当 chunk 较长时分片微延时输出，彻底解决“一下子整段全弹出来”的呆板感
+              const step = 3;
+              if (deltaText.length > step) {
+                for (let i = 0; i < deltaText.length; i += step) {
+                  const slice = deltaText.slice(i, i + step);
+                  chunkCount++;
+                  res.write(`event: content_block_delta\ndata: ${JSON.stringify({
+                    type: 'content_block_delta',
+                    index: 0,
+                    delta: { type: 'text_delta', text: slice }
+                  })}\n\n`);
+                  await new Promise(r => setTimeout(r, 12));
+                }
+              } else {
+                chunkCount++;
+                res.write(`event: content_block_delta\ndata: ${JSON.stringify({
+                  type: 'content_block_delta',
+                  index: 0,
+                  delta: { type: 'text_delta', text: deltaText }
+                })}\n\n`);
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      res.write(`event: content_block_stop\ndata: ${JSON.stringify({
+        type: 'content_block_stop',
+        index: 0
+      })}\n\n`);
+
+      res.write(`event: message_delta\ndata: ${JSON.stringify({
+        type: 'message_delta',
+        delta: { stop_reason: 'end_turn', stop_sequence: null },
+        usage: { output_tokens: Math.max(1, Math.round(fullResponse.length / 2)) }
+      })}\n\n`);
+
+      res.write(`event: message_stop\ndata: {"type":"message_stop"}\n\n`);
+      res.end();
+
+      const totalDur = Date.now() - tStart;
+      const ttft = tFirstToken ? (tFirstToken - tStart) : totalDur;
+      recordAuditLog({
+        channel: 'Web反代 (Gemini 3.8)',
+        endpoint: url.pathname,
+        model: reqModel,
+        stream: true,
+        status: 200,
+        duration_ms: totalDur,
+        ttft_ms: ttft,
+        chunks: chunkCount,
+        prompt: promptPreview,
+        response: fullResponse,
+        account: currentAccount
+      });
+      return;
+    } catch (e) {
+      recordAuditLog({
+        channel: 'Web反代 (Gemini 3.8)',
+        endpoint: url.pathname,
+        model: reqModel,
+        stream: isStream,
+        status: 500,
+        duration_ms: Date.now() - tStart,
+        ttft_ms: 0,
+        chunks: chunkCount,
+        prompt: promptPreview,
+        response: fullResponse,
+        account: currentAccount,
+        error: e.message
+      });
+      if (isStream) {
+        return sendStreamError(res, msgId, reqModel, 500, e.message, 'Web反代 (Gemini 3.8)');
+      }
+      return sendJSON({ error: { type: 'api_error', message: formatErrorMessage(500, e.message, 'Web反代 (Gemini 3.8)') } }, 500);
+    }
+  }
+  if (url.pathname === '/claude/v1/models' && req.method === 'GET') {
+    return sendJSON({
+      models: [
+        { id: 'claude-3-5-sonnet-20241022', display_name: '→ Gemini 2.0 Flash (Antigravity)', type: 'model' },
+        { id: 'claude-3-opus-20240229',     display_name: '→ Gemini 1.5 Pro (Antigravity)',  type: 'model' },
+        { id: 'claude-3-haiku-20240307',    display_name: '→ Gemini Flash Lite (Antigravity)', type: 'model' }
+      ]
+    });
+  }
+
+  // ─── Gemini 原生格式 (/gemini/v1beta/… → 直接透传官方 API) ─────────
+  if (url.pathname.startsWith('/gemini/v1beta/models') && req.method === 'GET') {
+    try {
+      const pool = loadPool();
+      const apiKey = pool.accounts?.[pool.active]?.ai_studio?.api_key;
+      if (!apiKey) return sendJSON({ error: '当前激活账号未绑定 AI Studio API Key' }, 401);
+      const upstream = await fetch(`https://generativelanguage.googleapis.com${url.pathname.replace('/gemini','')}?key=${apiKey}`);
+      return sendJSON(await upstream.json());
+    } catch (e) { return sendJSON({ error: e.message }, 500); }
+  }
+  if (url.pathname.match(/^\/gemini\/v1beta\/models\/[^/]+:(generateContent|streamGenerateContent)$/) && req.method === 'POST') {
+    const body = await readBody();
+    const pool = loadPool();
+    const apiKey = pool.accounts?.[pool.active]?.ai_studio?.api_key;
+    if (!apiKey) {
+      res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({ error: { message: '当前激活账号未绑定 AI Studio API Key', code: 401 } }));
+    }
+    const modelPath = url.pathname.replace('/gemini', '');
+    const isStream = modelPath.includes('streamGenerateContent');
+    const upstream = await fetch(
+      `https://generativelanguage.googleapis.com${modelPath}?key=${apiKey}${isStream ? '&alt=sse' : ''}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    );
+    res.writeHead(upstream.status, {
+      'Content-Type': upstream.headers.get('content-type') || 'application/json',
+      'Access-Control-Allow-Origin': '*'
+    });
+    if (upstream.body) {
+      const reader = upstream.body.getReader();
+      while (true) { const { done, value } = await reader.read(); if (done) break; res.write(value); }
+    }
+    return res.end();
   }
 
   // ─── 多渠道健康度全量诊断报告接口 ───────────────────────
@@ -1855,6 +2602,139 @@ const server = http.createServer(async (req, res) => {
       return sendJSON({ error: err.message }, 500);
     }
   }
+
+
+  // ─── 用系统 Chrome（指定 Profile）打开 Gemini 登录页 ─────────────────────
+  if (url.pathname === '/api/web-login-open' && req.method === 'POST') {
+    const body = await readBody();
+    const { email } = body;
+    if (!email) return sendJSON({ error: '缺少 email' }, 400);
+
+    // 读 Chrome Local State 获取 email → profile 目录的映射
+    const localStatePath = path.join(os.homedir(), 'Library/Application Support/Google/Chrome/Local State');
+    let profileDir = null;
+    try {
+      const localState = JSON.parse(fs.readFileSync(localStatePath, 'utf8'));
+      const infoCache = localState?.profile?.info_cache || {};
+      for (const [dir, info] of Object.entries(infoCache)) {
+        if (info.user_name === email) { profileDir = dir; break; }
+      }
+    } catch (e) { /* Chrome 未安装或路径不对 */ }
+
+    const target = 'https://gemini.google.com/app';
+    try {
+      if (profileDir) {
+        // 直接调用 Chrome 二进制并使用 AppleScript 唤醒置顶，解决已运行 Chrome 忽略 --args 的系统级 Bug
+        execSync(`"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --profile-directory="${profileDir}" "${target}" >/dev/null 2>&1 & osascript -e 'tell application "Google Chrome" to activate' 2>/dev/null || open -a "Google Chrome" "${target}"`, { stdio: 'ignore' });
+        return sendJSON({ success: true, profileDir, message: `已用 Chrome ${profileDir} (${email}) 打开 Gemini` });
+      } else {
+        execSync(`open -a "Google Chrome" "${target}" 2>/dev/null || open "${target}"`, { stdio: 'ignore' });
+        return sendJSON({ success: true, profileDir: null, message: '已打开 Gemini（使用默认浏览器）' });
+      }
+    } catch (e) {
+      return sendJSON({ error: e.message }, 500);
+    }
+  }
+
+  // ─── AppleScript 从 Chrome 活跃 Tab 捕获 Cookie ──────────────────────────
+  if (url.pathname === '/api/web-login-capture' && req.method === 'POST') {
+    const body = await readBody();
+    const { email, isPro } = body;
+    if (!email) return sendJSON({ error: '缺少 email' }, 400);
+
+    // AppleScript 需要 Chrome 开启 "允许 Apple 事件中的 JavaScript"
+    // 先检查当前 tab 是否在 gemini.google.com
+    const checkScript = `
+tell application "Google Chrome"
+  set tabUrl to URL of active tab of window 1
+  set cookieVal to execute active tab of window 1 javascript "document.cookie"
+  return tabUrl & "|||" & cookieVal
+end tell`.trim();
+
+    try {
+      let result;
+      try {
+        result = execSync(`osascript -e '${checkScript.replace(/'/g, "'\"'\"'")}'`, { encoding: 'utf8', timeout: 8000 }).trim();
+      } catch (scriptErr) {
+        const msg = scriptErr.stderr || scriptErr.message || '';
+        if (msg.includes('Apple 事件中的 JavaScript') || msg.includes('AppleScript')) {
+          return sendJSON({
+            error: 'chrome_js_disabled',
+            message: '需要先在 Chrome 开启"允许 Apple 事件中的 JavaScript"：\n菜单栏 → 查看 → 开发者 → 允许 Apple 事件中的 JavaScript'
+          }, 403);
+        }
+        throw scriptErr;
+      }
+
+      const parts = result.split('|||');
+      const tabUrl = parts[0] || '';
+      const cookie = (parts[1] || '').trim();
+
+      if (!tabUrl.includes('gemini.google.com')) {
+        return sendJSON({
+          error: 'wrong_tab',
+          message: `当前 Chrome 活跃 Tab 不是 Gemini（是 ${tabUrl.slice(0,60)}），请先切换到 Gemini 页面再点捕获`
+        }, 400);
+      }
+
+      if (!cookie || cookie.length < 50 || (!cookie.includes('SAPISID') && !cookie.includes('__Secure-1PSID') && !cookie.includes('SID='))) {
+        return sendJSON({
+          error: 'no_valid_cookie',
+          message: `Gemini 页面 Cookie 不包含有效的登录凭据（可能是匿名访问），请确保用 ${email} 登录 Gemini 后再点捕获`
+        }, 400);
+      }
+
+      // 绑定 Cookie（复用现有逻辑）
+      const pool = loadPool();
+      if (!pool.accounts[email]) return sendJSON({ error: '账号不存在' }, 404);
+      pool.accounts[email].web_auth = {
+        cookie,
+        status: 'bound',
+        is_pro: !!isPro,
+        bound_at: new Date().toISOString(),
+        source: 'chrome_applescript',
+        from_tab: tabUrl
+      };
+      savePool(pool);
+
+      // 同步写 web2api/cookie.txt（给 8085 进程用）
+      const cookiePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'web2api', 'cookie.txt');
+      fs.writeFileSync(cookiePath, cookie, 'utf8');
+
+      return sendJSON({ success: true, message: `✅ 已成功捕获并绑定 ${email} 的 Web Cookie！（来自 ${tabUrl.slice(0,60)}）`, cookieLen: cookie.length });
+    } catch (e) {
+      return sendJSON({ error: e.message }, 500);
+    }
+  }
+
+  // ─── 一键开启 Chrome "允许 Apple 事件中的 JavaScript" ───────────────────
+  if (url.pathname === '/api/chrome-enable-applescript' && req.method === 'POST') {
+    const enableScript = `
+tell application "Google Chrome"
+  activate
+end tell
+delay 0.4
+tell application "System Events"
+  tell process "Google Chrome"
+    click menu item "允许 Apple 事件中的 JavaScript" of menu "开发者" of menu item "开发者" of menu "显示" of menu bar 1
+  end tell
+end tell
+return "done"`.trim();
+    try {
+      execSync(`osascript << 'APPLESCRIPT'\n${enableScript}\nAPPLESCRIPT`, { encoding: 'utf8', timeout: 6000 });
+      return sendJSON({ success: true, message: '✅ 已开启 Chrome「允许 Apple 事件中的 JavaScript」，请重新点击「捕获 Cookie」' });
+    } catch (e) {
+      // 可能需要辅助功能权限
+      if (e.message.includes('1002') || e.message.includes('不被允许') || e.message.includes('assistive')) {
+        return sendJSON({
+          error: 'accessibility_required',
+          message: '需要授予辅助功能权限：\n系统设置 → 隐私与安全性 → 辅助功能 → 勾选「终端」或本应用'
+        }, 403);
+      }
+      return sendJSON({ error: e.message }, 500);
+    }
+  }
+
 
   if (url.pathname === '/' || url.pathname === '/index.html') {
     const htmlPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'index.html');
